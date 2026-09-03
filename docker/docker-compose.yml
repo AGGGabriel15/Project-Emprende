@@ -1,0 +1,48 @@
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: emprende-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: emprende
+      MONGO_INITDB_ROOT_PASSWORD: emprende_local
+      MONGO_INITDB_DATABASE: emprendedores_catarina
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--username",
+          "emprende",
+          "--password",
+          "emprende_local",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.adminCommand('ping').ok",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: emprende-mongo-express
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://emprende:emprende_local@mongo:27017/?authSource=admin
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin_local
+    ports:
+      - "8081:8081"
+
+volumes:
+  mongo_data:
