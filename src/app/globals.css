@@ -1,77 +1,151 @@
 @import "tailwindcss";
 
+/* Catarina Market · tokens de diseño (tema claro único)
+   Superficies blancas, verde hoja como marca y verdes suaves de apoyo. */
+
 :root {
-  --background: #fbfaf5;
-  --foreground: #183127;
-  --brand: #236b4e;
-  --brand-dark: #174936;
-  --accent: #e89c3f;
-  --cream: #f3eddd;
-  --muted: #65736b;
-  --border: #dbe2db;
+  --background: oklch(99.2% 0.004 150);
+  --foreground: oklch(23% 0.03 155);
+  --card: oklch(100% 0 0);
+  --card-foreground: var(--foreground);
+  --muted: oklch(96.3% 0.012 150);
+  --muted-foreground: oklch(45% 0.02 155);
+  --border: oklch(91.5% 0.014 150);
+  --input: oklch(78% 0.025 150);
+  --ring: oklch(55% 0.15 148);
+
+  --primary: oklch(52% 0.15 148);
+  --primary-hover: oklch(46% 0.14 148);
+  --primary-foreground: oklch(100% 0 0);
+  --primary-soft: oklch(95.5% 0.04 148);
+
+  --accent: oklch(86% 0.11 140);
+  --accent-hover: oklch(82% 0.12 140);
+  --accent-foreground: oklch(28% 0.08 150);
+  --accent-soft: oklch(96.5% 0.035 140);
+
+  --secondary: oklch(96% 0.02 148);
+  --secondary-foreground: oklch(30% 0.06 150);
+
+  --success: oklch(52% 0.14 150);
+  --success-soft: oklch(95.5% 0.04 150);
+  --warning: oklch(60% 0.14 65);
+  --warning-soft: oklch(96.5% 0.05 85);
+  --info: oklch(52% 0.13 250);
+  --info-soft: oklch(95.5% 0.03 250);
+  --violet: oklch(50% 0.15 295);
+  --violet-soft: oklch(95.5% 0.03 295);
+  --destructive: oklch(53% 0.19 27);
+  --destructive-soft: oklch(95.5% 0.03 27);
+
+  --hero: oklch(95.5% 0.04 148);
+  --hero-foreground: oklch(23% 0.03 155);
+
+  color-scheme: light;
 }
 
-* {
-  border-color: var(--border);
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-hero: var(--hero);
+  --color-hero-foreground: var(--hero-foreground);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
+
+  --radius-card: 1.25rem;
 }
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--accent);
+  }
+  /* Opciones de los select nativos siempre legibles. */
+  select option,
+  select optgroup {
+    background-color: var(--card);
+    color: var(--foreground);
+  }
 }
 
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-h1,
-h2,
-h3 {
-  font-family: Georgia, "Times New Roman", serif;
-  text-wrap: balance;
-}
-
-button,
-a,
-input,
-select,
-textarea {
-  outline-color: var(--accent);
-}
-
-::selection {
-  background: #f4c989;
-  color: #183127;
-}
-
-.container-page {
-  width: min(1180px, calc(100% - 2rem));
+@utility container-page {
+  width: min(1200px, calc(100% - 2rem));
   margin-inline: auto;
 }
 
-.pattern-leaves {
-  background-color: #1d5b43;
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Fondo verde claro con puntos sutiles para el hero. */
+@utility pattern-clay {
+  background-color: var(--hero);
   background-image:
-    radial-gradient(
-      circle at 12% 20%,
-      rgb(255 255 255 / 8%) 0 2px,
-      transparent 3px
-    ),
-    radial-gradient(
-      circle at 78% 72%,
-      rgb(232 156 63 / 18%) 0 3px,
-      transparent 4px
-    ),
-    linear-gradient(
-      120deg,
-      transparent 35%,
-      rgb(255 255 255 / 4%) 36% 38%,
-      transparent 39%
-    );
+    radial-gradient(circle at 15% 25%, rgb(255 255 255 / 80%) 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 70%, oklch(52% 0.15 148 / 12%) 0 3px, transparent 4px);
   background-size:
-    80px 80px,
-    110px 110px,
-    150px 150px;
+    72px 72px,
+    118px 118px;
+}
+
+/* Flecha verde de los select nativos. */
+@utility select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231d7a3a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 16px;
 }

@@ -1,14 +1,13 @@
+import { Skeleton } from "@/components/ui/card";
+
 export default function Loading() {
   return (
-    <div className="container-page py-12" aria-live="polite">
-      <div className="h-7 w-40 animate-pulse rounded bg-[#dfe7df]" />
-      <div className="mt-4 h-14 max-w-xl animate-pulse rounded bg-[#dfe7df]" />
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((item) => (
-          <div
-            key={item}
-            className="aspect-[4/3] animate-pulse rounded-3xl bg-[#e8efe8]"
-          />
+    <div className="container-page py-10" aria-busy="true" aria-live="polite">
+      <Skeleton className="h-8 w-56" />
+      <Skeleton className="mt-3 h-5 w-80 max-w-full" />
+      <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 8 }, (_, i) => (
+          <Skeleton key={i} className="aspect-[3/4]" />
         ))}
       </div>
     </div>

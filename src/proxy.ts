@@ -1,34 +1,62 @@
-import { getToken } from "next-auth/jwt";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Rutas que exigen sesión. El rol se valida aquí si viene en el JWT
+// (custom access token hook) y siempre otra vez en los layouts.
+const PROTECTED = [
+  "/checkout",
+  "/pedidos",
+  "/cuenta",
+  "/completar-perfil",
+  "/vendedor",
+  "/admin",
+];
+
 export async function proxy(request: NextRequest) {
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  let response = NextResponse.next({ request });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  // Refresca la sesión y verifica el JWT.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
   const { pathname, search } = request.nextUrl;
-  if (!token) {
+
+  if (!PROTECTED.some((path) => pathname.startsWith(path))) return response;
+
+  if (!claims) {
     const login = new URL("/login", request.url);
-    login.searchParams.set("callbackUrl", `${pathname}${search}`);
+    login.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(login);
   }
-  if (pathname.startsWith("/admin") && token.role !== "admin") {
+
+  const role = claims.user_role as string | undefined;
+  if (role && pathname.startsWith("/admin") && role !== "admin") {
     return NextResponse.redirect(new URL("/", request.url));
   }
-  if (pathname.startsWith("/dashboard") && token.role !== "emprendedor") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-  if (pathname.startsWith("/mis-pedidos") && token.role !== "cliente") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/admin/:path*",
-    "/dashboard/:path*",
-    "/mis-pedidos/:path*",
-    "/checkout",
+    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

@@ -1,105 +1,93 @@
-# Emprendedores Unidos de Catarina
+# Catarina Market
 
-Marketplace académico multivendedor para artesanías, plantas y alimentos elaborados por emprendedores de Catarina, Masaya. La aplicación incluye catálogo público, carrito por vendedor, pedidos, pago de demostración o Stripe Test, correo, panel de emprendedor y administración.
+Marketplace multi-vendedor para los negocios de Catarina, Masaya: artesanías, plantas, flores y decoración. Cada negocio tiene su catálogo, horario, zonas de delivery y pedidos propios. El cliente arma un carrito con productos de varios negocios y paga **un pedido por negocio**.
 
-## Requisitos
+**Stack:** Next.js 16 (App Router, Server Actions), Supabase (Postgres + RLS, Auth, Storage, Realtime, pg_cron), Stripe en modo test, Tailwind CSS 4, Zustand, TanStack Query, React Hook Form + Zod, Recharts, Resend, Sentry, Vitest y Playwright.
 
-- Node.js 20.9 o superior (probado con Node 24)
-- npm 11 o superior
-- Docker Desktop con Docker Compose
-- Google Chrome para las pruebas E2E
+> Stripe no abre cuentas de comercio en Nicaragua. Aquí se usa en **modo test**, o con la pasarela simulada si no hay llaves. Los pagos pasan por la interfaz `PaymentProvider` (`src/features/payments/provider.ts`), así que cambiar a otra pasarela solo requiere una nueva implementación.
 
-## Inicio rápido
+## Puesta en marcha
 
-1. Copia `.env.example` a `.env.local`. El repositorio ya incluye una configuración local ignorada por Git.
-2. Levanta la base de datos:
+### 1. Variables de entorno
 
-   ```bash
-   docker compose -f docker/docker-compose.yml up -d
-   ```
+Copia `.env.example` a `.env.local` y completa:
 
-3. Instala dependencias y carga datos de demostración:
+| Variable | Dónde se obtiene |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Misma pantalla (clave secreta, solo en el servidor) |
+| `DATABASE_URL` | Supabase → Connect → Session pooler |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe en modo test (opcional; sin ellas se usa el pago simulado) |
+| `RESEND_API_KEY` | Opcional; sin ella los correos solo se muestran en consola |
 
-   ```bash
-   npm install
-   npm run seed
-   ```
+### 2. Base de datos
 
-4. Inicia la aplicación:
+```bash
+npm install
+npm run db:migrate   # esquema, funciones, RLS, buckets, Realtime y cron
+npm run db:seed      # 17 departamentos, 153 municipios, categorías, comisión 8 %
+npm run seed:demo    # opcional: admin, cliente y 3 negocios con productos
+```
 
-   ```bash
-   npm run dev
-   ```
+Las migraciones están en `supabase/migrations/` y quedan registradas en la misma tabla que usa la CLI de Supabase. Para aplicarlas sin `DATABASE_URL`, pega cada archivo en orden en el **SQL Editor** de Supabase.
 
-La tienda estará en `http://localhost:3000` y mongo-express en `http://localhost:8081` (`admin` / `admin_local`).
+### 3. Ajustes en el panel de Supabase
 
-## Cuentas de demostración
+1. **Auth → URL Configuration:** Site URL `http://localhost:3000` y la redirección `http://localhost:3000/auth/callback`.
+2. **Auth → Providers → Google:** activa Google con el Client ID y el Secret de Google Cloud Console. En Google, la URL de redirección autorizada es `https://<proyecto>.supabase.co/auth/v1/callback`.
+3. **Auth → Hooks (opcional):** el *Custom Access Token Hook* `public.custom_access_token_hook` pone el rol en el JWT. Sin el hook, los layouts consultan el rol en `profiles`.
 
-Todas usan el valor de `SEED_DEFAULT_PASSWORD`:
+### 4. Ejecutar
 
-| Rol           | Correo                   | Estado    |
-| ------------- | ------------------------ | --------- |
-| Administrador | `admin@catarina.local`   | Activo    |
-| Cliente       | `cliente@catarina.local` | Activo    |
-| Emprendedor   | `maria@catarina.local`   | Aprobado  |
-| Emprendedor   | `jose@catarina.local`    | Pendiente |
+```bash
+npm run dev
+```
 
-El seed es idempotente: puede ejecutarse varias veces sin duplicar registros. No elimina datos creados manualmente.
+Para pagos con Stripe en modo test:
 
-## Pagos
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
 
-`PAYMENTS_MODE=mock` activa una pantalla local que permite completar el flujo sin dinero ni credenciales externas. La reserva de inventario se realiza antes del pago y se convierte en venta al confirmar.
+Usa la tarjeta `4242 4242 4242 4242`. Con `PAYMENTS_MODE=mock`, el checkout abre una pasarela simulada.
 
-Para Stripe Test:
+## Cuentas demo (`npm run seed:demo`)
 
-1. Cambia `PAYMENTS_MODE=stripe`.
-2. Configura `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET`.
-3. Instala Stripe CLI y reenvía eventos:
+Todas usan la contraseña de `SEED_DEFAULT_PASSWORD` (por defecto `Catarina2026!`).
 
-   ```bash
-   stripe listen --forward-to localhost:3000/api/pagos/webhook
-   ```
+| Rol | Correo |
+| --- | --- |
+| Admin | `admin@catarina.local` |
+| Cliente | `cliente@catarina.local` |
+| Vendedores | `maria@catarina.local` (vivero), `jose@catarina.local` (artesanías), `ana@catarina.local` (floristería, solo para llevar) |
 
-4. Usa una tarjeta de prueba, por ejemplo `4242 4242 4242 4242`, fecha futura y cualquier CVC.
+## Reglas de negocio
 
-Los pagos se envían en NIO. Las sesiones expiran en 30 minutos; el webhook libera el inventario de sesiones expiradas o fallidas. Los eventos son idempotentes a nivel del estado del pedido.
+Las valida el servidor en funciones de Postgres (`supabase/migrations/…_functions.sql`). El frontend solo las muestra.
 
-## Correo SMTP
+- **Carrito por negocio:** un checkout corresponde a un negocio, un pedido y un pago. El precio y el stock se recalculan en `create_order()`; nunca se usa el precio que envía el navegador.
+- **Servicio:** Delivery o Para llevar, según lo que active el negocio. La cobertura se valida con `can_deliver()` y `delivery_zones`: la tarifa del municipio tiene prioridad sobre la del departamento.
+- **Horario:** `is_business_open()` usa la zona `America/Managua` y tiene en cuenta los cierres especiales y el botón "Cerrar ahora".
+- **Comisión:** la regla del negocio tiene prioridad sobre la de la categoría, y esta sobre la tasa global de `platform_settings` (8 %). La tasa se congela en cada pedido y no se cobra sobre el envío.
+- **Estados del pedido:** `pending_payment` → `preparing` (solo por webhook o pago confirmado) → `ready_for_pickup` / `on_the_way` → `completed`. El negocio o el admin pueden cancelar, siempre con motivo; la cancelación pasa a `refunded` y repone el stock.
+- **Stock:** se descuenta al confirmarse el pago. Si alguien compró la última unidad antes, el pedido se cancela y se reembolsa automáticamente.
+- **Pagos sin confirmar:** `pg_cron` cancela cada 5 minutos los pedidos `pending_payment` vencidos (30 minutos).
+- **Webhook:** verifica la firma e ignora eventos repetidos según `event.id`.
+- **Seguridad:** RLS en todas las tablas. Los documentos van en un bucket privado y se abren con URL firmada. Cada acción de admin queda en `audit_logs`.
 
-Configura `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` y `SMTP_FROM`. La confirmación se intenta después de acreditar el pago. Si SMTP no está configurado o falla, el pedido conserva el pago y registra `emailStatus=failed` para diagnóstico.
+## Rutas
 
-## Imágenes
+- **Público:** `/`, `/buscar`, `/negocios`, `/negocios/[slug]`, `/productos/[id]`, `/vender`, `/terminos`, `/privacidad`
+- **Cliente:** `/carrito`, `/checkout/[businessId]`, `/pedidos` (pestañas Pendientes, Activos e Historial), `/pedidos/[id]`, `/cuenta`
+- **Vendedor:** `/vendedor/solicitud`, `/vendedor/panel`, `pedidos` (tablero en tiempo real), `productos`, `categorias`, `horarios`, `delivery`, `finanzas`, `reportes` (Excel/PDF), `configuracion`
+- **Admin:** `/admin/dashboard`, `solicitudes`, `negocios`, `usuarios`, `pedidos`, `comisiones`, `pagos-negocios`, `categorias`, `zonas`, `configuracion`, `auditoria`
 
-Los emprendedores aprobados pueden subir JPG, PNG o WebP de hasta 5 MB. Los archivos se guardan en `public/uploads/products` y se excluyen de Git. Este almacenamiento está pensado exclusivamente para la entrega local.
-
-## Comandos de calidad
+## Calidad
 
 ```bash
 npm run lint
 npm run typecheck
-npm test
+npm test            # reglas: transiciones, horario, comisión, cobertura, carrito, validaciones, reportes
 npm run build
-npm run test:e2e
+npm run test:e2e    # requiere seed:demo y PAYMENTS_MODE=mock
 ```
-
-Las pruebas E2E requieren MongoDB activo y el seed cargado. Playwright utiliza Chrome instalado en el sistema.
-
-## Rutas principales
-
-- Públicas: `/`, `/productos`, `/productos/[id]`, `/categorias/[slug]`
-- Cliente: `/carrito`, `/checkout`, `/mis-pedidos`
-- Emprendedor: `/dashboard`, `/dashboard/productos`, `/dashboard/pedidos`
-- Administración: `/admin`, `/admin/usuarios`, `/admin/emprendedores`, `/admin/categorias`, `/admin/productos`
-- API: `/api/registro`, `/api/productos`, `/api/categorias`, `/api/pedidos`, `/api/pagos`, `/api/reportes`
-
-## Solución de problemas
-
-- **No aparecen productos:** confirma `docker compose ... ps` y ejecuta `npm run seed`.
-- **Error de autenticación:** revisa `NEXTAUTH_URL` y `NEXTAUTH_SECRET`, y vuelve a iniciar el servidor.
-- **Pago real no actualiza el pedido:** verifica Stripe CLI, `STRIPE_WEBHOOK_SECRET` y que el evento llegue a `/api/pagos/webhook`.
-- **No llegan correos:** consulta `emailStatus` y `emailError` en el pedido desde mongo-express.
-- **Puerto ocupado:** cambia el mapeo en `docker/docker-compose.yml` y actualiza `MONGODB_URI` si corresponde.
-
-## Alcance
-
-No incluye compra como invitado, comisiones, impuestos, reembolsos, tarifas de envío, mapas, chat, cupones ni despliegue en la nube. La interfaz está en español, usa córdobas nicaragüenses y la zona horaria `America/Managua`.

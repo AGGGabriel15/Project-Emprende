@@ -1,18 +1,24 @@
+import { Compass } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
-    <div className="container-page grid min-h-[560px] place-items-center py-12 text-center">
+    <div className="container-page grid min-h-[70dvh] place-items-center py-12 text-center">
       <div>
-        <p className="font-serif text-7xl font-bold text-[#e89c3f]">404</p>
-        <h1 className="mt-3 text-4xl font-bold">No encontramos esa página</h1>
-        <p className="mt-3 text-[#65736b]">
-          Quizá el producto ya no está disponible.
-        </p>
-        <Button asChild className="mt-6">
-          <Link href="/productos">Volver al catálogo</Link>
-        </Button>
+        <span className="mx-auto grid size-16 place-items-center rounded-full bg-primary-soft text-primary">
+          <Compass className="size-7" />
+        </span>
+        <h1 className="mt-4 text-3xl font-semibold">No encontramos esa página</h1>
+        <p className="mt-2 text-muted-foreground">Puede que el producto o negocio ya no esté disponible.</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Button asChild>
+            <Link href="/buscar">Explorar productos</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/">Inicio</Link>
+          </Button>
+        </div>
       </div>
     </div>
   );
