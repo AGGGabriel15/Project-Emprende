@@ -120,3 +120,18 @@ export function groupByBusiness(items: CartItem[]): CartGroup[] {
 export function cartCount(items: CartItem[]) {
   return items.reduce((sum, item) => sum + item.quantity, 0);
 }
+
+/** Combina el carrito local con el guardado (gana la cantidad mayor, sin pasar el stock). */
+export function mergeCarts(local: CartItem[], remote: CartItem[]) {
+  const map = new Map(remote.map((item) => [item.productId, item]));
+  for (const item of local) {
+    const saved = map.get(item.productId);
+    map.set(item.productId, saved ? { ...saved, quantity: Math.min(Math.max(saved.quantity, item.quantity), saved.stock || 1) } : item);
+  }
+  return [...map.values()];
+}
+
+/** Lo que se guarda en Supabase de cada línea. */
+export function cartPayload(items: CartItem[]) {
+  return items.map(({ productId, businessId, quantity, note }) => ({ productId, businessId, quantity, note }));
+}

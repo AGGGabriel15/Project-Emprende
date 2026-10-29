@@ -2,16 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { getServerCart, saveServerCart } from "@/features/cart/actions";
-import { useCart, type CartItem } from "@/features/cart/store";
-
-function merge(local: CartItem[], remote: CartItem[]) {
-  const map = new Map(remote.map((item) => [item.productId, item]));
-  for (const item of local) {
-    const saved = map.get(item.productId);
-    map.set(item.productId, saved ? { ...saved, quantity: Math.min(Math.max(saved.quantity, item.quantity), saved.stock || 1) } : item);
-  }
-  return [...map.values()];
-}
+import { cartPayload, mergeCarts, useCart } from "@/features/cart/store";
 
 /**
  * El carrito local pertenece a una sola cuenta:
@@ -41,13 +32,13 @@ export function CartSync({ userId }: { userId: string | null }) {
       if (cancelled) return;
       const { items: local, ownerId: owner } = useCart.getState();
       // Mismo usuario o visitante: se combinan; carrito de otra cuenta: se descarta.
-      setOwner(userId, owner === userId || owner === null ? merge(local, remote) : remote);
+      setOwner(userId, owner === userId || owner === null ? mergeCarts(local, remote) : remote);
       ready.current = true;
-      void saveServerCart(toPayload(useCart.getState().items));
+      void saveServerCart(cartPayload(useCart.getState().items));
       unsubscribe = useCart.subscribe((state, previous) => {
         if (!ready.current || state.items === previous.items || state.ownerId !== userId) return;
         clearTimeout(timer);
-        timer = setTimeout(() => void saveServerCart(toPayload(state.items)), 800);
+        timer = setTimeout(() => void saveServerCart(cartPayload(state.items)), 800);
       });
     };
 
@@ -64,8 +55,4 @@ export function CartSync({ userId }: { userId: string | null }) {
   }, [userId]);
 
   return null;
-}
-
-function toPayload(items: CartItem[]) {
-  return items.map(({ productId, businessId, quantity, note }) => ({ productId, businessId, quantity, note }));
 }

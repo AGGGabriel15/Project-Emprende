@@ -1,4 +1,4 @@
-import { TIME_ZONE } from "@/lib/utils";
+import { TIME_ZONE } from "@/lib/format";
 import type { BusinessClosure, BusinessHour } from "@/types/domain";
 
 export const DAY_NAMES = [

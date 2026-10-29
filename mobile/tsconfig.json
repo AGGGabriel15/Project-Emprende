@@ -1,0 +1,17 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "~/*": ["./src/*"],
+      "@/*": ["../src/*"],
+      "~assets/*": ["./assets/*"],
+      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"],
+      "zod": ["./node_modules/zod"],
+      "zustand": ["./node_modules/zustand"],
+      "zustand/*": ["./node_modules/zustand/*"],
+      "libphonenumber-js": ["./node_modules/libphonenumber-js"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}

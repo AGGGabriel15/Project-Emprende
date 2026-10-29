@@ -1,6 +1,6 @@
 import type { ZodError } from "zod";
 import type { ActionResult } from "@/types/domain";
-import { errorMessage } from "@/lib/utils";
+import { errorMessage } from "@/lib/format";
 
 export function success<T>(data: T): ActionResult<T>;
 export function success(): ActionResult;

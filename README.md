@@ -109,6 +109,15 @@ Las valida el servidor en funciones de Postgres (`supabase/migrations/`). El fro
 - **Pagos y webhook:** el pago se confirma por webhook o consultando la sesión de Stripe al volver del pago. El webhook ignora eventos repetidos (`event.id`).
 - **Seguridad:** RLS en todas las tablas. Los documentos y las fotos de evidencia van en buckets privados y se abren con URL firmada. Las acciones del admin quedan en `audit_logs`.
 
+## App móvil (`mobile/`)
+
+App en React Native + Expo para clientes, vendedores y repartidores (el administrador usa este web). Comparte con el web los módulos puros de `src/` (tipos, estados, precios, horarios, validaciones y las acciones `*/mutations.ts` y `*/read.ts`, que reciben el cliente de Supabase) y usa estas rutas del web:
+
+- `/api/mobile/*`: pago con Stripe, sincronización, reembolsos y evidencias, con el token de la app (`Authorization: Bearer`).
+- `/api/webhooks/push`: lo llama la base (trigger `notifications_push` vía pg_net) para enviar cada aviso como notificación push.
+
+Instrucciones, animación de apertura y configuración pendiente en [`mobile/README.md`](mobile/README.md). `mobile/` está fuera del typecheck, del lint y del deploy del web (`tsconfig.json`, `eslint.config.mjs`, `.vercelignore`).
+
 ## Rutas
 
 - **Público:** `/`, `/buscar`, `/negocios`, `/negocios/[slug]` (sello de nivel y métricas), `/productos/[id]`, `/vender`, `/terminos`, `/privacidad`
