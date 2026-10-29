@@ -1,34 +1,42 @@
 @import "tailwindcss";
 
-/* Catarina Market · tokens de diseño (tema claro único)
-   Superficies blancas, verde hoja como marca y verdes suaves de apoyo. */
+/* Catarina Market · tokens de diseño (manual de identidad, tema claro único)
+   Verde Catarina #1E7A4C (principal) · Verde Bosque #0E3B27 (textos)
+   Verde Brote #3FA66B (hoja y detalles, nunca textos) · Verde Niebla #E7F2EA (fondos)
+   Proporción: 70 % blanco, 20 % verde Catarina, 10 % bosque y brote. */
 
 :root {
-  --background: oklch(99.2% 0.004 150);
-  --foreground: oklch(23% 0.03 155);
-  --card: oklch(100% 0 0);
+  --catarina: #1e7a4c;
+  --bosque: #0e3b27;
+  --brote: #3fa66b;
+  --niebla: #e7f2ea;
+  --hoja-clara: #9bd3ae;
+
+  --background: #f8fbf9;
+  --foreground: var(--bosque);
+  --card: #ffffff;
   --card-foreground: var(--foreground);
-  --muted: oklch(96.3% 0.012 150);
-  --muted-foreground: oklch(45% 0.02 155);
-  --border: oklch(91.5% 0.014 150);
-  --input: oklch(78% 0.025 150);
-  --ring: oklch(55% 0.15 148);
+  --muted: #f0f6f2;
+  --muted-foreground: #4a6b5a;
+  --border: #d6e9dc;
+  --input: #a9c7b4;
+  --ring: var(--brote);
 
-  --primary: oklch(52% 0.15 148);
-  --primary-hover: oklch(46% 0.14 148);
-  --primary-foreground: oklch(100% 0 0);
-  --primary-soft: oklch(95.5% 0.04 148);
+  --primary: var(--catarina);
+  --primary-hover: #17643e;
+  --primary-foreground: #ffffff;
+  --primary-soft: var(--niebla);
 
-  --accent: oklch(86% 0.11 140);
-  --accent-hover: oklch(82% 0.12 140);
-  --accent-foreground: oklch(28% 0.08 150);
-  --accent-soft: oklch(96.5% 0.035 140);
+  --accent: var(--hoja-clara);
+  --accent-hover: #86c79c;
+  --accent-foreground: var(--bosque);
+  --accent-soft: var(--niebla);
 
-  --secondary: oklch(96% 0.02 148);
-  --secondary-foreground: oklch(30% 0.06 150);
+  --secondary: var(--niebla);
+  --secondary-foreground: #2f5442;
 
-  --success: oklch(52% 0.14 150);
-  --success-soft: oklch(95.5% 0.04 150);
+  --success: var(--catarina);
+  --success-soft: var(--niebla);
   --warning: oklch(60% 0.14 65);
   --warning-soft: oklch(96.5% 0.05 85);
   --info: oklch(52% 0.13 250);
@@ -38,8 +46,8 @@
   --destructive: oklch(53% 0.19 27);
   --destructive-soft: oklch(95.5% 0.03 27);
 
-  --hero: oklch(95.5% 0.04 148);
-  --hero-foreground: oklch(23% 0.03 155);
+  --hero: var(--niebla);
+  --hero-foreground: var(--bosque);
 
   color-scheme: light;
 }
@@ -76,9 +84,14 @@
   --color-destructive-soft: var(--destructive-soft);
   --color-hero: var(--hero);
   --color-hero-foreground: var(--hero-foreground);
+  --color-catarina: var(--catarina);
+  --color-bosque: var(--bosque);
+  --color-brote: var(--brote);
+  --color-niebla: var(--niebla);
+  --color-hoja-clara: var(--hoja-clara);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
 
   --radius-card: 1.25rem;
 }
@@ -102,7 +115,7 @@
   h3 {
     font-family: var(--font-display);
     text-wrap: balance;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -131,20 +144,22 @@
   }
 }
 
-/* Fondo verde claro con puntos sutiles para el hero. */
-@utility pattern-clay {
-  background-color: var(--hero);
-  background-image:
-    radial-gradient(circle at 15% 25%, rgb(255 255 255 / 80%) 0 2px, transparent 3px),
-    radial-gradient(circle at 75% 70%, oklch(52% 0.15 148 / 12%) 0 3px, transparent 4px);
-  background-size:
-    72px 72px,
-    118px 118px;
+/* Patrón gráfico de la marca (flor, cántaro, hoja y carrito). */
+@utility pattern-brand {
+  background-color: var(--niebla);
+  background-image: url("/brand/patron-blanco.svg");
+  background-size: 96px 96px;
+}
+
+@utility pattern-brand-green {
+  background-color: var(--catarina);
+  background-image: url("/brand/patron-verde.svg");
+  background-size: 96px 96px;
 }
 
 /* Flecha verde de los select nativos. */
 @utility select-chevron {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231d7a3a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231e7a4c' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.85rem center;
   background-size: 16px;

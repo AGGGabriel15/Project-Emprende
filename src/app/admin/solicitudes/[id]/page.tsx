@@ -284,8 +284,8 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
         <CardHeader title="Presentación" />
         <CardBody className="space-y-4">
           <div className="flex gap-4">
-            {business.logo_url && <Image src={business.logo_url} alt="Logo" width={80} height={80} className="size-20 rounded-2xl object-cover" />}
-            {business.cover_url && <Image src={business.cover_url} alt="Portada" width={320} height={130} className="h-20 w-auto rounded-2xl object-cover" />}
+            {business.logo_url && <Image src={business.logo_url} alt="Logo" width={80} height={80} className="size-20 shrink-0 rounded-2xl object-cover" />}
+            {business.cover_url && <Image src={business.cover_url} alt="Portada" width={320} height={130} className="h-20 min-w-0 flex-1 rounded-2xl object-cover sm:max-w-xs" />}
           </div>
           <p className="text-sm whitespace-pre-line text-muted-foreground">{business.description || "Sin descripción."}</p>
         </CardBody>

@@ -22,7 +22,7 @@ export default async function SellPage() {
 
   return (
     <>
-      <section className="pattern-clay text-hero-foreground">
+      <section className="pattern-brand text-hero-foreground">
         <div className="container-page py-14 text-center">
           <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">Para negocios de Catarina</p>
           <h1 className="mx-auto mt-3 max-w-2xl text-4xl font-semibold sm:text-5xl">Lleva tu vivero o taller a todo Nicaragua</h1>

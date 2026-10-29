@@ -44,19 +44,20 @@ export default async function ApplicationsPage() {
               const category = b.category as unknown as { name: string } | null;
               return (
                 <li key={b.id}>
-                  <Link href={`/admin/solicitudes/${b.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/50">
-                    <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 font-semibold">
-                        {b.trade_name}
+                  <Link href={`/admin/solicitudes/${b.id}`} className="flex items-center gap-3 px-4 py-4 hover:bg-muted/50 sm:gap-4 sm:px-5">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="font-semibold">{b.trade_name}</p>
+                      <div className="flex flex-wrap gap-1.5">
                         <Badge tone={b.tier === "informal" ? "violet" : "brand"}>{TIER_INFO[b.tier as BusinessTier].label}</Badge>
                         {b.tier === "informal" && !b.verification_visit_at && <Badge tone="amber">Falta visita</Badge>}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
+                      </div>
+                      <p className="text-sm [overflow-wrap:anywhere] text-muted-foreground">
                         {category?.name} · {owner?.full_name} ({owner?.email})
                       </p>
+                      <p className="text-xs text-muted-foreground sm:hidden">Enviada {b.submitted_at ? formatDate(b.submitted_at) : ""}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">Enviada {b.submitted_at ? formatDate(b.submitted_at) : ""}</span>
-                    <ChevronRight className="size-5 text-muted-foreground" />
+                    <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">Enviada {b.submitted_at ? formatDate(b.submitted_at) : ""}</span>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                   </Link>
                 </li>
               );
@@ -72,10 +73,10 @@ export default async function ApplicationsPage() {
             <ul className="divide-y">
               {(upgrades ?? []).map((b) => (
                 <li key={b.id}>
-                  <Link href={`/admin/solicitudes/${b.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/50">
+                  <Link href={`/admin/solicitudes/${b.id}`} className="flex items-center gap-3 px-4 py-4 hover:bg-muted/50 sm:gap-4 sm:px-5">
                     <p className="min-w-0 flex-1 font-semibold">{b.trade_name}</p>
-                    <span className="text-xs text-muted-foreground">Desde {formatDate(b.upgrade_requested_at!)}</span>
-                    <ChevronRight className="size-5 text-muted-foreground" />
+                    <span className="shrink-0 text-xs text-muted-foreground">Desde {formatDate(b.upgrade_requested_at!)}</span>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                   </Link>
                 </li>
               ))}

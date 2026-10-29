@@ -1,4 +1,5 @@
-import { ArrowRight, Bike, ShieldCheck, Store } from "lucide-react";
+import { ArrowRight, Store } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { BusinessCard } from "@/components/catalog/business-card";
 import { CategoryChips } from "@/components/catalog/category-chips";
@@ -11,7 +12,7 @@ import {
   listCategories,
   searchProducts,
 } from "@/features/catalog/queries";
-import { businessOpenState, deliveryFor } from "@/features/catalog/meta";
+import { deliveryFor } from "@/features/catalog/meta";
 import { getVisitorLocation } from "@/features/location/server";
 
 export default async function HomePage() {
@@ -22,52 +23,51 @@ export default async function HomePage() {
     getVisitorLocation(),
   ]);
   const delivery = deliveryFor(await getPlatformZones(), location);
-  const openCount = businesses.filter((b) => businessOpenState(b).open).length;
 
   return (
     <>
-      <section className="pattern-clay text-hero-foreground">
-        <div className="container-page grid gap-8 py-12 md:grid-cols-[1.2fr_1fr] md:py-16">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
+      <section className="relative isolate overflow-hidden bg-bosque">
+        <Image
+          src="/brand/mirador-catarina.jpg"
+          alt="La Laguna de Apoyo vista desde el Mirador de Catarina"
+          fill
+          priority
+          sizes="100vw"
+          className="-z-10 object-cover object-[center_62%]"
+        />
+        <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-bosque/55 via-bosque/30 to-bosque/70 md:bg-linear-to-r md:from-bosque/70 md:via-bosque/25 md:to-transparent" />
+        <div className="container-page py-14 sm:py-20 md:py-28">
+          <div className="max-w-2xl rounded-[2rem] border border-white/30 bg-bosque/30 p-6 text-white shadow-[0_24px_60px_-20px_rgb(14_59_39/0.6)] backdrop-blur-xl backdrop-saturate-150 sm:p-10">
+            <p className="text-xs font-semibold tracking-[0.2em] text-hoja-clara uppercase">
               Catarina, Masaya · el balcón de los pueblos
             </p>
             <h1 className="mt-3 text-4xl leading-tight font-semibold sm:text-5xl">
               Artesanías, plantas y flores directo de quienes las hacen
             </h1>
-            <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
+            <p className="mt-4 max-w-xl text-base text-white/85 sm:text-lg">
               Compra a los viveros y talleres de Catarina. Cada negocio prepara tu
               pedido y te lo envía o lo retiras en el local.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap gap-3">
               <Button asChild size="lg">
                 <Link href="/buscar">
                   Explorar productos <ArrowRight />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="bg-card">
+              <Button asChild size="lg" variant="outline" className="border-white/50 bg-white/10 text-white hover:border-white hover:bg-white/20 hover:text-white">
                 <Link href="/vender">Vender en Catarina Market</Link>
               </Button>
             </div>
           </div>
-          <ul className="grid content-center gap-3 text-sm">
-            {[
-              { icon: Store, title: `${businesses.length} negocios locales`, text: `${openCount} abiertos ahora mismo` },
-              { icon: Bike, title: "Delivery o para llevar", text: "Tarifa clara según tu departamento" },
-              { icon: ShieldCheck, title: "Pago seguro", text: "Tu pedido entra a preparación al confirmarse el pago" },
-            ].map(({ icon: Icon, title, text }) => (
-              <li key={title} className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-sm ring-1 ring-border">
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
-                  <Icon className="size-5" />
-                </span>
-                <span>
-                  <span className="block font-semibold">{title}</span>
-                  <span className="text-muted-foreground">{text}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
         </div>
+        <a
+          href="https://commons.wikimedia.org/wiki/File:Laguna_de_Apoyo.jpg"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute right-3 bottom-2 text-[10px] text-white/60 hover:text-white"
+        >
+          Mirador de Catarina · Foto: Jesús Jiménez, CC BY-SA 2.0 (editada)
+        </a>
       </section>
 
       <div className="container-page space-y-12 py-10">
@@ -109,15 +109,15 @@ export default async function HomePage() {
           </section>
         )}
 
-        <section className="grid items-center gap-6 rounded-(--radius-card) border bg-card p-6 sm:p-10 md:grid-cols-[1fr_auto]">
+        <section className="pattern-brand-green grid items-center gap-6 rounded-(--radius-card) p-6 text-white sm:p-10 md:grid-cols-[1fr_auto]">
           <div>
             <h2 className="text-2xl font-semibold">¿Tienes un vivero o taller en Catarina?</h2>
-            <p className="mt-2 max-w-2xl text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-white/85">
               Publica tu catálogo, recibe pedidos en tiempo real y cobra en línea.
               Sin mensualidad: solo una comisión cuando vendes.
             </p>
           </div>
-          <Button asChild size="lg">
+          <Button asChild size="lg" variant="outline" className="border-white bg-white text-catarina hover:bg-niebla hover:text-catarina">
             <Link href="/vender">Quiero vender</Link>
           </Button>
         </section>

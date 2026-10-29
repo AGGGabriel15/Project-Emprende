@@ -1,15 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { DM_Sans, Outfit } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { getGeo } from "@/features/location/server";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  axes: ["opsz"],
-});
+/** Tipografías del manual: Outfit (logotipo, títulos y botones) y DM Sans (textos e interfaz). */
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +30,7 @@ export default async function RootLayout({
     <html
       lang="es"
       data-scroll-behavior="smooth"
-      className={`${inter.variable} ${fraunces.variable}`}
+      className={`${dmSans.variable} ${outfit.variable}`}
     >
       <body className="min-h-dvh">
         <Providers geo={geo}>{children}</Providers>
