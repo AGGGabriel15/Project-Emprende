@@ -27,6 +27,10 @@ export type CartGroup = {
 
 type CartState = {
   items: CartItem[];
+  /** Usuario dueño del carrito local (null = visitante). Evita mezclar cuentas. */
+  ownerId: string | null;
+  setOwner: (ownerId: string | null, items: CartItem[]) => void;
+  removeProducts: (productIds: string[]) => void;
   add: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   setQuantity: (productId: string, quantity: number) => void;
   setNote: (productId: string, note: string) => void;
@@ -43,6 +47,10 @@ export const useCart = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      ownerId: null,
+      setOwner: (ownerId, items) => set({ ownerId, items }),
+      removeProducts: (productIds) =>
+        set({ items: get().items.filter((i) => !productIds.includes(i.productId)) }),
       add: (item, quantity = 1) => {
         const existing = get().items.find((i) => i.productId === item.productId);
         if (existing) {
@@ -76,7 +84,16 @@ export const useCart = create<CartState>()(
       replace: (items) => set({ items }),
       clear: () => set({ items: [] }),
     }),
-    { name: "cm-cart", version: 2 },
+    {
+      name: "cm-cart",
+      version: 3,
+      // Carritos anteriores sin dueño: se tratan como de otra cuenta y no se mezclan.
+      migrate: (persisted, version) => {
+        const state = persisted as { items?: CartItem[] };
+        const items = state.items ?? [];
+        return { items, ownerId: version < 3 && items.length ? "legacy" : null } as CartState;
+      },
+    },
   ),
 );
 

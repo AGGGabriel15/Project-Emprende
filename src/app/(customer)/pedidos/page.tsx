@@ -1,6 +1,7 @@
 import { ChevronRight, Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ProductImage } from "@/components/catalog/product-image";
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { ResumePaymentButton } from "@/components/orders/resume-payment-button";
@@ -8,6 +9,7 @@ import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { listOrders } from "@/features/orders/queries";
+import { syncStripePayments } from "@/features/payments/sync";
 import { CUSTOMER_TABS, SERVICE_LABEL, type CustomerTab } from "@/features/orders/status";
 import { requireCustomer } from "@/lib/auth";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
@@ -32,6 +34,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Searc
   const { profile } = await requireCustomer("/pedidos");
   const orders = await listOrders({ customerId: profile.id });
   const { tab: rawTab } = await searchParams;
+  // Pagos hechos en Stripe cuyo webhook no llegó: se verifican al abrir la lista y,
+  // si alguno se acreditó, se recarga la ruta (Next memoiza la consulta en el render).
+  const unpaid = orders.filter((o) => o.status === "pending_payment" && o.payment_provider === "stripe");
+  if (unpaid.length && (await syncStripePayments(unpaid.map((o) => o.id)))) {
+    redirect(rawTab ? `/pedidos?tab=${encodeURIComponent(rawTab)}` : "/pedidos");
+  }
   const counts = Object.fromEntries(
     (Object.keys(CUSTOMER_TABS) as CustomerTab[]).map((key) => [
       key,

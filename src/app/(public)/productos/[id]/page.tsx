@@ -9,7 +9,7 @@ import { Rating } from "@/components/catalog/rating";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { businessOpenState, deliveryFor } from "@/features/catalog/meta";
-import { getProduct } from "@/features/catalog/queries";
+import { getPlatformZones, getProduct } from "@/features/catalog/queries";
 import { getVisitorLocation } from "@/features/location/server";
 import { formatMoney } from "@/lib/utils";
 
@@ -24,11 +24,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 export default async function ProductPage({ params }: { params: Params }) {
   const { id } = await params;
-  const [product, location] = await Promise.all([getProduct(id), getVisitorLocation()]);
+  const [product, location, zones] = await Promise.all([getProduct(id), getVisitorLocation(), getPlatformZones()]);
   if (!product) notFound();
   const { business } = product;
   const state = businessOpenState(business);
-  const delivery = deliveryFor(business, location);
+  const delivery = deliveryFor(zones, location);
   const soldOut = product.stock <= 0;
 
   const specs = [
@@ -125,19 +125,17 @@ export default async function ProductPage({ params }: { params: Params }) {
             <div className="mt-4 grid gap-2 border-t pt-4 text-sm">
               {business.accepts_pickup && (
                 <p className="flex items-center gap-2">
-                  <Store className="size-4 text-primary" /> Para llevar: retiro en el local
+                  <Store className="size-4 text-primary" /> Retiro en el local (con tu PIN)
                 </p>
               )}
-              {business.accepts_delivery && (
-                <p className="flex items-center gap-2">
-                  <Bike className="size-4 text-primary" />
-                  {delivery
-                    ? `Delivery a tu zona: ${formatMoney(delivery.fee)}`
-                    : location
-                      ? "No hace delivery a tu ubicación"
-                      : "Delivery disponible (elige tu ubicación para ver la tarifa)"}
-                </p>
-              )}
+              <p className="flex items-center gap-2">
+                <Bike className="size-4 text-primary" />
+                {delivery
+                  ? `Delivery Catarina Market a tu zona: ${formatMoney(delivery.fee)}`
+                  : location
+                    ? "Aún no llegamos a tu zona con delivery"
+                    : "Delivery Catarina Market (elige tu ubicación para ver la tarifa)"}
+              </p>
             </div>
           </Card>
         </div>

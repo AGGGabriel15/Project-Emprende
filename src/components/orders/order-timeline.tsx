@@ -15,9 +15,11 @@ export function OrderTimeline({
   history: OrderStatusHistory[];
 }) {
   const reachedAt = new Map(history.map((h) => [h.to_status, h.created_at]));
-  const cancelled = status === "cancelled" || status === "refunded";
-  const steps: OrderStatus[] = cancelled
-    ? [...timelineSteps(service).filter((s) => reachedAt.has(s)), "cancelled", ...(status === "refunded" ? (["refunded"] as const) : [])]
+  // Desvíos del camino normal: se muestran los pasos alcanzados y luego el desenlace.
+  const detour = (["cancelled", "returned", "disputed", "refunded"] as OrderStatus[]).filter((s) => reachedAt.has(s) || s === status);
+  const cancelled = status === "cancelled" || status === "refunded" || status === "returned";
+  const steps: OrderStatus[] = detour.length
+    ? [...timelineSteps(service).filter((s) => reachedAt.has(s) && s !== "completed"), ...detour, ...(status === "completed" ? (["completed"] as const) : [])]
     : timelineSteps(service);
   const currentIndex = steps.indexOf(status);
 
@@ -29,7 +31,7 @@ export function OrderTimeline({
         const Icon = ORDER_STATUS_ICON[step];
         const at = reachedAt.get(step);
         const note = history.find((h) => h.to_status === step)?.note;
-        const bad = step === "cancelled" || step === "refunded";
+        const bad = step === "cancelled" || step === "refunded" || step === "returned" || step === "disputed";
         return (
           <li key={step} className="relative flex gap-4 pb-6 last:pb-0">
             {index < steps.length - 1 && (
@@ -58,7 +60,7 @@ export function OrderTimeline({
                 {current && <span className="ml-2 text-xs font-normal text-primary">Estado actual</span>}
               </p>
               {at && <p className="text-xs text-muted-foreground">{formatDate(at)}</p>}
-              {note && bad && <p className="mt-1 text-sm">{note}</p>}
+              {note && (bad || step === "on_the_way" || step === "delivered") && <p className="mt-1 text-sm">{note}</p>}
             </div>
           </li>
         );

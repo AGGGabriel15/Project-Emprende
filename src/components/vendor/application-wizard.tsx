@@ -1,10 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ChevronLeft, ChevronRight, Send } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, FileBadge, Home, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { LocationSelects } from "@/components/customer/location-selects";
@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form-controls";
 import { PhoneInput } from "@/components/ui/masked-inputs";
 import { DocumentUploader, SingleImageUploader } from "@/components/upload/uploaders";
+import { GeoLocationField } from "./geo-location-field";
 import {
   recordDocument,
   saveBankStep,
@@ -27,19 +28,22 @@ import {
   legalStepSchema,
   REQUIRED_DOCUMENTS,
   storeStepSchema,
+  TIER_INFO,
 } from "@/lib/validations/business";
 import type {
   BankAccount,
   Business,
   BusinessDocument,
+  BusinessTier,
   DocumentType,
   PlatformCategory,
 } from "@/types/domain";
 
-const STEPS = ["Datos legales", "Documentos", "Tu local", "Cuenta bancaria", "Enviar"];
+const STEPS = ["Tipo y datos", "Documentos", "Tu local", "Cuenta bancaria", "Enviar"];
 
 export function ApplicationWizard({
   business,
+  location,
   bank,
   documents,
   categories,
@@ -47,6 +51,7 @@ export function ApplicationWizard({
   ownerName,
 }: {
   business: Business | null;
+  location: { latitude: number | null; longitude: number | null } | null;
   bank: BankAccount | null;
   documents: BusinessDocument[];
   categories: PlatformCategory[];
@@ -58,9 +63,13 @@ export function ApplicationWizard({
   const [hasBusiness, setHasBusiness] = useState(Boolean(business));
   const [docs, setDocs] = useState<Set<DocumentType>>(new Set(documents.map((d) => d.doc_type)));
   const [hasBank, setHasBank] = useState(Boolean(bank));
-  const [storeSaved, setStoreSaved] = useState(Boolean(business?.category_id && business.address_line));
+  const [tier, setTier] = useState<BusinessTier>(business?.tier ?? "informal");
+  const [storeSaved, setStoreSaved] = useState(
+    Boolean(business?.category_id && business.address_line && (business.tier !== "informal" || location?.latitude != null)),
+  );
+  const requiredDocs = REQUIRED_DOCUMENTS[tier];
 
-  const done = [hasBusiness, REQUIRED_DOCUMENTS.every((d) => docs.has(d.type)), storeSaved, hasBank, false];
+  const done = [hasBusiness, requiredDocs.every((d) => docs.has(d.type)), storeSaved, hasBank, false];
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
 
   return (
@@ -96,8 +105,10 @@ export function ApplicationWizard({
           <LegalStep
             business={business}
             ownerName={ownerName}
-            onSaved={() => {
+            onSaved={(savedTier) => {
               setHasBusiness(true);
+              setTier(savedTier);
+              if (savedTier === "informal" && location?.latitude == null) setStoreSaved(false);
               router.refresh();
               next();
             }}
@@ -105,12 +116,20 @@ export function ApplicationWizard({
         )}
         {step === 1 && (
           <div className="space-y-5">
-            <StepTitle title="Documentos de verificación" text="Se guardan en un almacenamiento privado: solo tú y la administración pueden verlos." />
+            <StepTitle
+              title="Documentos de verificación"
+              text={
+                tier === "informal"
+                  ? "No necesitas RUC. Con tu cédula, una selfie y fotos de tu lugar confirmamos que eres tú y que el negocio existe. Luego te visitaremos."
+                  : "Se guardan en un almacenamiento privado: solo tú y la administración pueden verlos."
+              }
+            />
             <div className="grid gap-3 sm:grid-cols-2">
-              {REQUIRED_DOCUMENTS.map((doc) => (
+              {requiredDocs.map((doc) => (
                 <DocumentUploader
                   key={doc.type}
                   label={doc.label}
+                  hint={"hint" in doc ? doc.hint : undefined}
                   uploaded={docs.has(doc.type)}
                   onUploaded={async (path) => {
                     const result = await recordDocument({ docType: doc.type, filePath: path });
@@ -127,6 +146,8 @@ export function ApplicationWizard({
         {step === 2 && (
           <StoreStep
             business={business}
+            location={location}
+            tier={tier}
             categories={categories}
             onBack={() => setStep(1)}
             onSaved={() => {
@@ -138,6 +159,7 @@ export function ApplicationWizard({
         {step === 3 && (
           <BankStep
             bank={bank}
+            tier={tier}
             ownerName={business?.legal_name ?? ownerName}
             onBack={() => setStep(2)}
             onSaved={() => {
@@ -148,6 +170,7 @@ export function ApplicationWizard({
         )}
         {step === 4 && (
           <SubmitStep
+            tier={tier}
             ready={done.slice(0, 4).every(Boolean)}
             missing={STEPS.slice(0, 4).filter((_, i) => !done[i])}
             commissionRate={commissionRate}
@@ -197,54 +220,104 @@ function StepNav({
   );
 }
 
-function LegalStep({ business, ownerName, onSaved }: { business: Business | null; ownerName: string; onSaved: () => void }) {
+function LegalStep({
+  business,
+  ownerName,
+  onSaved,
+}: {
+  business: Business | null;
+  ownerName: string;
+  onSaved: (tier: BusinessTier) => void;
+}) {
   type Values = z.input<typeof legalStepSchema>;
+  type FormalValues = Extract<Values, { tier: "formal" }>;
   const form = useForm<Values>({
     resolver: zodResolver(legalStepSchema),
     defaultValues: {
+      tier: business?.tier ?? "informal",
       tradeName: business?.trade_name ?? "",
       legalName: business?.legal_name ?? ownerName,
       personType: business?.person_type ?? "natural",
       ruc: business?.ruc ?? "",
       taxRegime: business?.tax_regime ?? "cuota_fija",
       municipalLicense: business?.municipal_license ?? "",
-    },
+    } as Values,
   });
-  const { errors, isSubmitting } = form.formState;
+  const { isSubmitting } = form.formState;
+  const errors = form.formState.errors as FieldErrors<FormalValues>;
+  const tier = useWatch({ control: form.control, name: "tier" });
   const submit = form.handleSubmit(async (values) => {
     const result = await saveLegalStep(values);
     if (!result.ok) return void toast.error(result.error);
-    onSaved();
+    onSaved(values.tier);
   });
   return (
     <form onSubmit={submit} className="space-y-5" noValidate>
-      <StepTitle title="Datos legales" text="Como aparecen en la DGI y en la Alcaldía de Catarina." />
+      <StepTitle title="¿Cómo vendes?" text="Ambos pagan la misma comisión. El negocio formal tiene límites de venta más altos." />
+      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de vendedor">
+        {(["informal", "formal"] as const).map((option) => {
+          const Icon = option === "informal" ? Home : FileBadge;
+          const active = tier === option;
+          return (
+            <label
+              key={option}
+              className={cn(
+                "flex cursor-pointer gap-3 rounded-2xl border-2 p-4 transition",
+                active ? "border-primary bg-primary-soft" : "border-border hover:border-primary/50",
+              )}
+            >
+              <input type="radio" value={option} className="sr-only" {...form.register("tier")} />
+              <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                <Icon className="size-5" />
+              </span>
+              <span>
+                <span className="block font-semibold">{TIER_INFO[option].label}</span>
+                <span className="block text-sm text-muted-foreground">{TIER_INFO[option].short}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nombre comercial" htmlFor="tradeName" error={errors.tradeName?.message} hint="Así te verán los clientes.">
+        <Field label="Nombre del negocio" htmlFor="tradeName" error={errors.tradeName?.message} hint="Así te verán los clientes.">
           <Input id="tradeName" placeholder="Vivero Los Helechos" {...form.register("tradeName")} />
         </Field>
-        <Field label="Razón social / propietario" htmlFor="legalName" error={errors.legalName?.message}>
+        <Field
+          label={tier === "formal" ? "Razón social / propietario" : "Tu nombre completo (como en la cédula)"}
+          htmlFor="legalName"
+          error={errors.legalName?.message}
+        >
           <Input id="legalName" {...form.register("legalName")} />
         </Field>
-        <Field label="Tipo de persona" htmlFor="personType" error={errors.personType?.message}>
-          <Select id="personType" {...form.register("personType")}>
-            <option value="natural">Persona natural</option>
-            <option value="juridica">Persona jurídica</option>
-          </Select>
-        </Field>
-        <Field label="RUC (DGI)" htmlFor="ruc" error={errors.ruc?.message}>
-          <Input id="ruc" placeholder="J0310000000001" {...form.register("ruc")} />
-        </Field>
-        <Field label="Régimen fiscal" htmlFor="taxRegime" error={errors.taxRegime?.message}>
-          <Select id="taxRegime" {...form.register("taxRegime")}>
-            <option value="cuota_fija">Cuota fija</option>
-            <option value="regimen_general">Régimen general</option>
-          </Select>
-        </Field>
-        <Field label="Matrícula de la Alcaldía" htmlFor="municipalLicense" error={errors.municipalLicense?.message}>
-          <Input id="municipalLicense" {...form.register("municipalLicense")} />
-        </Field>
+        {tier === "formal" && (
+          <>
+            <Field label="Tipo de persona" htmlFor="personType" error={errors.personType?.message}>
+              <Select id="personType" {...form.register("personType")}>
+                <option value="natural">Persona natural</option>
+                <option value="juridica">Persona jurídica</option>
+              </Select>
+            </Field>
+            <Field label="RUC (DGI)" htmlFor="ruc" error={errors.ruc?.message}>
+              <Input id="ruc" placeholder="J0310000000001" {...form.register("ruc")} />
+            </Field>
+            <Field label="Régimen fiscal" htmlFor="taxRegime" error={errors.taxRegime?.message}>
+              <Select id="taxRegime" {...form.register("taxRegime")}>
+                <option value="cuota_fija">Cuota fija</option>
+                <option value="regimen_general">Régimen general</option>
+              </Select>
+            </Field>
+            <Field label="Matrícula de la Alcaldía" htmlFor="municipalLicense" error={errors.municipalLicense?.message}>
+              <Input id="municipalLicense" {...form.register("municipalLicense")} />
+            </Field>
+          </>
+        )}
       </div>
+      {tier === "informal" && (
+        <p className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+          Te pediremos tu cédula, una selfie con ella y fotos de tu lugar, y haremos una visita antes de
+          aprobarte. Cuando obtengas RUC y matrícula podrás pasar a Negocio formal desde tu panel.
+        </p>
+      )}
       <StepNav submit loading={isSubmitting} />
     </form>
   );
@@ -252,11 +325,15 @@ function LegalStep({ business, ownerName, onSaved }: { business: Business | null
 
 function StoreStep({
   business,
+  location,
+  tier,
   categories,
   onBack,
   onSaved,
 }: {
   business: Business | null;
+  location: { latitude: number | null; longitude: number | null } | null;
+  tier: BusinessTier;
   categories: PlatformCategory[];
   onBack: () => void;
   onSaved: () => void;
@@ -274,14 +351,19 @@ function StoreStep({
       whatsapp: business?.whatsapp ?? "",
       logoUrl: business?.logo_url ?? "",
       coverUrl: business?.cover_url ?? "",
+      latitude: location?.latitude != null ? Number(location.latitude) : null,
+      longitude: location?.longitude != null ? Number(location.longitude) : null,
     },
   });
   const { errors, isSubmitting } = form.formState;
-  const [departmentId, municipalityId, logoUrl, coverUrl] = useWatch({
+  const [departmentId, municipalityId, logoUrl, coverUrl, latitude, longitude] = useWatch({
     control: form.control,
-    name: ["departmentId", "municipalityId", "logoUrl", "coverUrl"],
+    name: ["departmentId", "municipalityId", "logoUrl", "coverUrl", "latitude", "longitude"],
   });
   const submit = form.handleSubmit(async (values) => {
+    if (tier === "informal" && (values.latitude == null || values.longitude == null)) {
+      return void toast.error("Marca la ubicación exacta de tu negocio.");
+    }
     const result = await saveStoreStep(values);
     if (!result.ok) return void toast.error(result.error);
     onSaved();
@@ -322,9 +404,18 @@ function StoreStep({
           form.setValue("municipalityId", value.municipalityId);
         }}
       />
-      <Field label="Dirección del local" htmlFor="addressLine" error={errors.addressLine?.message}>
-        <Input id="addressLine" placeholder="Del mirador 1 c. al este" {...form.register("addressLine")} />
+      <Field label="Dirección y punto de referencia" htmlFor="addressLine" error={errors.addressLine?.message}>
+        <Input id="addressLine" placeholder="Del mirador 1 c. al este, casa verde" {...form.register("addressLine")} />
       </Field>
+      <GeoLocationField
+        latitude={latitude}
+        longitude={longitude}
+        required={tier === "informal"}
+        onChange={(value) => {
+          form.setValue("latitude", value.latitude);
+          form.setValue("longitude", value.longitude);
+        }}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Teléfono" htmlFor="phone" error={errors.phone?.message}>
           <Controller
@@ -352,11 +443,13 @@ function StoreStep({
 
 function BankStep({
   bank,
+  tier,
   ownerName,
   onBack,
   onSaved,
 }: {
   bank: BankAccount | null;
+  tier: BusinessTier;
   ownerName: string;
   onBack: () => void;
   onSaved: () => void;
@@ -407,7 +500,13 @@ function BankStep({
         <Field label="Número de cuenta" htmlFor="accountNumber" error={errors.accountNumber?.message}>
           <Input id="accountNumber" inputMode="numeric" {...form.register("accountNumber")} />
         </Field>
-        <Field label="Titular" htmlFor="accountHolder" error={errors.accountHolder?.message} className="sm:col-span-2">
+        <Field
+          label="Titular"
+          htmlFor="accountHolder"
+          error={errors.accountHolder?.message}
+          hint={tier === "informal" ? "Debe ser la misma persona de la cédula: no pagamos a cuentas de terceros." : undefined}
+          className="sm:col-span-2"
+        >
           <Input id="accountHolder" {...form.register("accountHolder")} />
         </Field>
       </div>
@@ -417,11 +516,13 @@ function BankStep({
 }
 
 function SubmitStep({
+  tier,
   ready,
   missing,
   commissionRate,
   onBack,
 }: {
+  tier: BusinessTier;
   ready: boolean;
   missing: string[];
   commissionRate: number;
@@ -430,6 +531,7 @@ function SubmitStep({
   const router = useRouter();
   const [terms, setTerms] = useState(false);
   const [commission, setCommission] = useState(false);
+  const [declaration, setDeclaration] = useState(false);
   const [pending, startTransition] = useTransition();
   return (
     <div className="space-y-5">
@@ -440,9 +542,9 @@ function SubmitStep({
       <div className="rounded-2xl bg-muted p-4 text-sm">
         <p className="font-semibold">Comisión vigente: {formatPercent(commissionRate)} por pedido</p>
         <p className="mt-1 text-muted-foreground">
-          Sin mensualidad ni inscripción. Se calcula sobre el subtotal de productos; la tarifa de delivery
-          pasa íntegra a tu negocio. Ejemplo: en un pedido de C$ 1,000 + C$ 80 de envío recibes C${" "}
-          {(1000 - 1000 * commissionRate + 80).toLocaleString("es-NI")}.
+          Sin mensualidad ni inscripción. Se calcula sobre los productos. Catarina Market cobra el envío al
+          cliente, envía a sus repartidores y te paga 48 h después de la entrega. Ejemplo: en un pedido de
+          C$ 1,000 en productos recibes C$ {(1000 - 1000 * commissionRate).toLocaleString("es-NI")}.
         </p>
       </div>
       <div className="space-y-3">
@@ -464,13 +566,26 @@ function SubmitStep({
           onChange={(e) => setCommission(e.target.checked)}
           label={`Acepto la comisión de ${formatPercent(commissionRate)} por pedido.`}
         />
+        <Checkbox
+          checked={declaration}
+          onChange={(e) => setDeclaration(e.target.checked)}
+          label={
+            <>
+              <strong>Declaración jurada:</strong> los datos y documentos son verdaderos; vendo productos propios o
+              de procedencia legítima; acepto la inspección de cada pedido al recogerlo
+              {tier === "informal" ? ", la visita de verificación" : ""} y que Catarina Market retenga el pago hasta
+              confirmar la entrega. Si incumplo, acepto faltas, suspensión y el descuento de reembolsos de mis
+              liquidaciones.
+            </>
+          }
+        />
       </div>
       <div className="flex justify-between gap-3 border-t pt-5">
         <Button variant="ghost" onClick={onBack}>
           <ChevronLeft /> Atrás
         </Button>
         <Button
-          disabled={!ready || !terms || !commission}
+          disabled={!ready || !terms || !commission || !declaration}
           loading={pending}
           onClick={() =>
             startTransition(async () => {

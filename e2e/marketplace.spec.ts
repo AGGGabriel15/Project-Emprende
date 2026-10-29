@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { closePages, PHOTO, pinFor } from "./helpers";
+
+test.afterEach(({ browser }) => closePages(browser));
 
 try {
   process.loadEnvFile(".env.local");
@@ -67,7 +70,7 @@ test.describe("compra multi-negocio", () => {
     await customer.waitForURL(/\/checkout\//, { timeout: 60_000 });
     await expect(customer.getByRole("heading", { name: /Vivero Los Helechos/ })).toBeVisible({ timeout: 30_000 });
 
-    await customer.getByRole("radio", { name: /Para llevar/ }).click();
+    await customer.getByRole("radio", { name: /Retiro en el negocio/ }).click();
     await customer.getByRole("button", { name: /^Pagar C\$/ }).click();
     await customer.waitForURL(/pago-demo/, { timeout: 60_000 });
     await customer.getByRole("button", { name: /^Pagar C\$/ }).click(); // pasarela demo
@@ -77,15 +80,28 @@ test.describe("compra multi-negocio", () => {
     await customer.goto("/carrito");
     await expect(customer.getByText("Artesanías El Mirador")).toBeVisible();
 
-    // El vendedor avanza el pedido.
+    // El vendedor empaca (foto) y entrega en el local con el PIN del cliente.
+    const { data: placed } = await admin()
+      .from("orders")
+      .select("id, order_number, business:businesses!inner(slug)")
+      .eq("business.slug", "vivero-los-helechos")
+      .eq("status", "preparing")
+      .order("paid_at", { ascending: false })
+      .limit(1)
+      .single();
     const vendor = await browser.newPage();
     await login(vendor, "maria@catarina.local", "/vendedor/pedidos");
     await vendor.goto("/vendedor/pedidos");
-    await vendor.getByRole("button", { name: "Marcar listo para retirar" }).first().click();
-    await vendor.getByRole("button", { name: "Entregado al cliente" }).first().click();
+    const card = vendor.locator(`[data-order="${placed!.order_number}"]`);
+    await card.getByRole("button", { name: /Marcar listo/ }).click();
+    await vendor.getByLabel("Foto del pedido empacado").setInputFiles(PHOTO);
+    await vendor.getByRole("button", { name: /Confirmar listo/ }).click();
+    await card.getByRole("button", { name: /Entregar con PIN/ }).click({ timeout: 30_000 });
+    await vendor.getByLabel("PIN del cliente").fill(await pinFor(placed!.id));
+    await vendor.getByRole("button", { name: /Confirmar entrega/ }).click();
 
     await customer.goto("/pedidos?tab=historial");
-    await expect(customer.getByText("Completado").first()).toBeVisible();
+    await expect(customer.getByText("Entregado").first()).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -128,6 +144,6 @@ test.describe("cuentas de vendedor y administración", () => {
     test.setTimeout(120_000);
     await login(page, "admin@catarina.local", "/");
     await expect(page).toHaveURL(/\/admin\/dashboard/);
-    await expect(page.getByRole("button", { name: "Menú de cuenta" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Menú de cuenta" })).toBeVisible({ timeout: 30_000 });
   });
 });

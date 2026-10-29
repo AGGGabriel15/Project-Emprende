@@ -2,14 +2,16 @@
 
 import { z } from "zod";
 import { businessOpenState, type BusinessWithMeta } from "@/features/catalog/meta";
-import { confirmPayment } from "@/features/orders/server";
+import { confirmPayment, removeOrderedFromCart } from "@/features/orders/server";
 import { getPaymentProvider } from "@/features/payments/provider";
+import { openStripeCheckoutUrl, syncStripePayment } from "@/features/payments/sync";
 import { appUrl, failure, invalid, success } from "@/lib/actions";
 import { canShop } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cartLineSchema, checkoutSchema } from "@/lib/validations/checkout";
 import type { Address, Order, OrderItem, Product, ServiceType } from "@/types/domain";
+import { getPlatformZones } from "@/features/catalog/queries";
 import { zoneFor } from "./pricing";
 
 const quoteSchema = z.object({
@@ -35,6 +37,7 @@ export type Quote = {
   lines: QuoteLine[];
   subtotal: number;
   deliveryFee: number;
+  serviceFee: number;
   estimatedDays: number | null;
   total: number;
   open: boolean;
@@ -56,7 +59,7 @@ export async function quoteCheckout(input: unknown, clientPrices?: Record<string
   const [{ data: business }, { data: products }, address] = await Promise.all([
     supabase
       .from("businesses")
-      .select("*, category:platform_categories(name, slug, icon), business_hours(*), business_closures(date, reason), delivery_zones(*)")
+      .select("*, category:platform_categories(name, slug, icon), business_hours(*), business_closures(date, reason)")
       .eq("id", businessId)
       .maybeSingle(),
     supabase.from("products").select("*").eq("business_id", businessId).in("id", items.map((i) => i.productId)),
@@ -105,8 +108,13 @@ export async function quoteCheckout(input: unknown, clientPrices?: Record<string
   let estimatedDays: number | null = null;
   let canDeliver = false;
   const addr = address.data as Address | null;
-  if (meta.accepts_delivery && addr) {
-    const zone = zoneFor(meta.delivery_zones, addr.department_id, addr.municipality_id);
+  const [zones, { data: serviceSetting }] = await Promise.all([
+    getPlatformZones(),
+    supabase.from("platform_settings").select("value").eq("key", "service_fee_minor").maybeSingle(),
+  ]);
+  const serviceFee = Number(serviceSetting?.value ?? 1500);
+  if (addr) {
+    const zone = zoneFor(zones, addr.department_id, addr.municipality_id);
     canDeliver = Boolean(zone);
     if (zone && serviceType === "delivery") {
       deliveryFee = zone.fee_minor;
@@ -114,7 +122,7 @@ export async function quoteCheckout(input: unknown, clientPrices?: Record<string
     }
   }
   if (serviceType === "delivery" && addr && !canDeliver) {
-    issues.push("El negocio no envía a esa dirección. Elige Para llevar u otra dirección.");
+    issues.push(meta.accepts_pickup ? "Aún no entregamos en esa dirección. Elige retiro en el negocio u otra dirección." : "Aún no entregamos en esa dirección.");
   }
 
   const subtotal = lines.filter((l) => l.available).reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
@@ -122,8 +130,9 @@ export async function quoteCheckout(input: unknown, clientPrices?: Record<string
     lines,
     subtotal,
     deliveryFee,
+    serviceFee,
     estimatedDays,
-    total: subtotal + deliveryFee,
+    total: subtotal + deliveryFee + serviceFee,
     open: state.open,
     openDetail: state.detail,
     canDeliver,
@@ -184,6 +193,8 @@ export async function placeOrder(input: unknown) {
     p_note: data.note ?? null,
   });
   if (error) return failure(error, "No pudimos crear el pedido.");
+  // El pedido ya existe (pestaña Pendientes): sus productos salen del carrito guardado.
+  await removeOrderedFromCart(orderId as string);
 
   const { data: order } = await supabase
     .from("orders")
@@ -214,8 +225,16 @@ export async function resumePayment(orderId: string) {
   if (order.status !== "pending_payment" || new Date(order.expires_at) < new Date()) {
     return failure({ message: "Este pedido ya no está pendiente de pago." });
   }
+  // Si ya se pagó en Stripe (webhook pendiente), se acredita en vez de cobrar otra vez;
+  // si la sesión anterior sigue abierta, se reutiliza.
+  const synced = await syncStripePayment(order.id);
+  if (synced === "confirmed" || synced === "already") {
+    return success({ url: `${appUrl()}/checkout/exito?pedido=${order.id}` });
+  }
+  if (synced) return failure({ message: "Este pedido ya no está pendiente de pago." });
   try {
-    return success({ url: await startCheckout(order, user.email) });
+    const openUrl = await openStripeCheckoutUrl(order.id);
+    return success({ url: openUrl ?? (await startCheckout(order, user.email)) });
   } catch (err) {
     return failure(err, "No pudimos abrir el pago.");
   }

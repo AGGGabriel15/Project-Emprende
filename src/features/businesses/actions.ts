@@ -8,6 +8,7 @@ import { slugify, toMinor } from "@/lib/utils";
 import {
   bankStepSchema,
   businessSettingsSchema,
+  formalUpgradeSchema,
   legalStepSchema,
   storeStepSchema,
 } from "@/lib/validations/business";
@@ -16,7 +17,6 @@ import {
   hoursSchema,
   productCategorySchema,
   productSchema,
-  zoneSchema,
 } from "@/lib/validations/catalog";
 import type { Business, DocumentType } from "@/types/domain";
 
@@ -50,13 +50,15 @@ export async function saveLegalStep(input: unknown) {
   if (!user) return failure({ message: "Inicia sesión." });
   if (!editable(business)) return failure({ message: "La solicitud ya fue enviada." });
 
+  const data = parsed.data;
   const row = {
-    trade_name: parsed.data.tradeName,
-    legal_name: parsed.data.legalName,
-    person_type: parsed.data.personType,
-    ruc: parsed.data.ruc,
-    tax_regime: parsed.data.taxRegime,
-    municipal_license: parsed.data.municipalLicense,
+    tier: data.tier,
+    trade_name: data.tradeName,
+    legal_name: data.legalName,
+    person_type: data.tier === "formal" ? data.personType : "natural",
+    ruc: data.tier === "formal" ? data.ruc : null,
+    tax_regime: data.tier === "formal" ? data.taxRegime : null,
+    municipal_license: data.tier === "formal" ? data.municipalLicense : null,
   };
   if (business) {
     const { error } = await supabase.from("businesses").update(row).eq("id", business.id);
@@ -98,6 +100,15 @@ export async function saveStoreStep(input: unknown) {
     })
     .eq("id", business.id);
   if (error) return failure(error);
+  if (parsed.data.latitude != null && parsed.data.longitude != null) {
+    const { error: geoError } = await supabase.from("business_private").upsert({
+      business_id: business.id,
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
+      updated_at: new Date().toISOString(),
+    });
+    if (geoError) return failure(geoError);
+  }
   return success();
 }
 
@@ -120,7 +131,16 @@ export async function saveBankStep(input: unknown) {
 }
 
 const documentSchema = z.object({
-  docType: z.enum(["ruc", "cedula_front", "cedula_back", "municipal_license", "other"]),
+  docType: z.enum([
+    "ruc",
+    "cedula_front",
+    "cedula_back",
+    "municipal_license",
+    "selfie_cedula",
+    "place_photo_1",
+    "place_photo_2",
+    "other",
+  ]),
   filePath: z.string().min(3).max(300),
 });
 
@@ -147,15 +167,42 @@ export async function recordDocument(input: { docType: DocumentType; filePath: s
 export async function submitApplication(rate: number) {
   const { supabase, business } = await context();
   if (!business) return failure({ message: "Completa la solicitud." });
+  const { data: terms } = await supabase.from("platform_settings").select("value").eq("key", "terms_version").maybeSingle();
   const { error: termsError } = await supabase
     .from("businesses")
-    .update({ accepted_terms_at: new Date().toISOString(), accepted_commission_rate: rate })
+    .update({
+      accepted_terms_at: new Date().toISOString(),
+      declaration_accepted_at: new Date().toISOString(),
+      accepted_commission_rate: rate,
+      accepted_terms_version: String(terms?.value ?? "2026-10"),
+    })
     .eq("id", business.id);
   if (termsError) return failure(termsError);
   const { error } = await supabase.rpc("submit_business_application", { p_business: business.id });
   if (error) return failure(error);
   revalidatePath("/vendedor", "layout");
   return success();
+}
+
+/** Un emprendedor aprobado pide pasar a Negocio formal (el admin lo revisa). */
+export async function requestFormalUpgrade(input: unknown) {
+  const parsed = formalUpgradeSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+  try {
+    const { supabase, business } = await requireBusiness();
+    const { error } = await supabase.rpc("request_formal_upgrade", {
+      p_business: business.id,
+      p_person_type: parsed.data.personType,
+      p_ruc: parsed.data.ruc,
+      p_tax_regime: parsed.data.taxRegime,
+      p_license: parsed.data.municipalLicense,
+    });
+    if (error) return failure(error);
+    revalidatePath("/vendedor", "layout");
+    return success();
+  } catch (err) {
+    return failure(err);
+  }
 }
 
 // Configuración del negocio --------------------------------------------------
@@ -264,40 +311,6 @@ export async function deleteClosure(id: string) {
   const { error } = await supabase.from("business_closures").delete().eq("id", id);
   if (error) return failure(error);
   revalidatePath("/vendedor/horarios");
-  return success();
-}
-
-// Zonas de delivery ----------------------------------------------------------
-
-export async function saveZone(input: unknown) {
-  const parsed = zoneSchema.safeParse(input);
-  if (!parsed.success) return invalid(parsed.error);
-  try {
-    const { supabase, business } = await requireBusiness();
-    const municipalityId = parsed.data.municipalityId || null;
-    const { error } = await supabase.from("delivery_zones").upsert(
-      {
-        business_id: business.id,
-        department_id: parsed.data.departmentId,
-        municipality_id: municipalityId,
-        fee_minor: toMinor(parsed.data.fee),
-        estimated_days: parsed.data.estimatedDays,
-      },
-      { onConflict: "business_id,department_id,municipality_id" },
-    );
-    if (error) return failure(error);
-    revalidatePath("/vendedor/delivery");
-    return success();
-  } catch (err) {
-    return failure(err);
-  }
-}
-
-export async function deleteZone(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("delivery_zones").delete().eq("id", id);
-  if (error) return failure(error);
-  revalidatePath("/vendedor/delivery");
   return success();
 }
 

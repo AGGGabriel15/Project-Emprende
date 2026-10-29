@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { destinationFor } from "@/lib/roles";
+import { destinationFor, needsProfileCompletion } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
 /** Retorno de Google OAuth, confirmación de correo y recuperación de clave. */
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
   if (profile && !next.startsWith("/actualizar-clave")) next = destinationFor(profile.role, next);
   if (
-    (!profile?.phone || !profile?.department_id) &&
+    (!profile || needsProfileCompletion(profile)) &&
     !next.startsWith("/completar-perfil") &&
     !next.startsWith("/actualizar-clave")
   ) {

@@ -1,12 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { orderTotals, zoneFor } from "./pricing";
+import { orderTotals, platformMargin, zoneFor } from "./pricing";
 
 describe("desglose del pedido", () => {
-  it("la comisión se cobra solo sobre el subtotal; el envío pasa íntegro al negocio", () => {
-    const totals = orderTotals(100_000, 8_000, 0.08);
+  it("el negocio recibe productos menos comisión; envío y servicio son de la plataforma", () => {
+    const totals = orderTotals(100_000, 8_000, 0.08, 1_500);
     expect(totals.commission).toBe(8_000);
-    expect(totals.total).toBe(108_000);
-    expect(totals.vendorNet).toBe(100_000 - 8_000 + 8_000);
+    expect(totals.total).toBe(109_500);
+    expect(totals.vendorNet).toBe(92_000);
+  });
+
+  it("ejemplo del modelo: C$600 a Managua deja ≈ C$66 a la plataforma", () => {
+    const margin = platformMargin({
+      subtotal: 60_000,
+      deliveryFee: 12_000,
+      serviceFee: 1_500,
+      courierCost: 9_000,
+      rate: 0.1,
+      gatewayRate: 0.039,
+      reserveRate: 0.015,
+    });
+    expect(margin.total).toBe(73_500);
+    expect(margin.vendorNet).toBe(54_000);
+    expect(margin.gateway).toBe(2_867);
+    expect(margin.net).toBe(6_000 + 3_000 + 1_500 - 2_867 - 900);
   });
 
   it("redondea la comisión al centavo", () => {

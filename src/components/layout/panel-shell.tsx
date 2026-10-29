@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   Gauge,
+  History,
   Layers,
   LayoutDashboard,
   Map,
@@ -18,6 +19,7 @@ import {
   ShieldCheck,
   Store,
   Tags,
+  UserRound,
   Users,
   Wallet,
   X,
@@ -50,6 +52,8 @@ const ICONS = {
   layers: Layers,
   map: Map,
   audit: ScrollText,
+  history: History,
+  user: UserRound,
 } as const;
 
 export type PanelNavItem = {

@@ -46,18 +46,19 @@ export default async function ApplicationPage() {
     );
   }
 
-  const [{ data: bank }, { data: documents }] = business
+  const [{ data: bank }, { data: documents }, { data: location }] = business
     ? await Promise.all([
         supabase.from("business_bank_accounts").select("*").eq("business_id", business.id).maybeSingle(),
         supabase.from("business_documents").select("*").eq("business_id", business.id),
+        supabase.from("business_private").select("latitude, longitude").eq("business_id", business.id).maybeSingle(),
       ])
-    : [{ data: null }, { data: [] }];
+    : [{ data: null }, { data: [] }, { data: null }];
 
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-2xl font-semibold sm:text-3xl">Registra tu negocio</h1>
       <p className="mt-1 text-muted-foreground">
-        Completa los 5 pasos. Guardamos tu avance en cada paso, puedes volver cuando quieras.
+        Completa los 5 pasos. Puedes vender aunque no tengas RUC: guardamos tu avance en cada paso.
       </p>
       {business?.status === "rejected" && (
         <div className="mt-5 rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm">
@@ -68,6 +69,7 @@ export default async function ApplicationPage() {
       )}
       <ApplicationWizard
         business={business}
+        location={location}
         bank={bank as BankAccount | null}
         documents={(documents ?? []) as BusinessDocument[]}
         categories={categories}

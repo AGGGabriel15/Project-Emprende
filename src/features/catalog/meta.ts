@@ -4,8 +4,8 @@ import type {
   Business,
   BusinessClosure,
   BusinessHour,
-  DeliveryZone,
   PlatformCategory,
+  PlatformZone,
   Product,
 } from "@/types/domain";
 
@@ -15,7 +15,6 @@ export type BusinessWithMeta = Business & {
   category: Pick<PlatformCategory, "name" | "slug" | "icon"> | null;
   business_hours: BusinessHour[];
   business_closures: Pick<BusinessClosure, "date" | "reason">[];
-  delivery_zones: DeliveryZone[];
 };
 
 export type ProductWithBusiness = Product & { business: BusinessWithMeta };
@@ -29,13 +28,11 @@ export function businessOpenState(business: BusinessWithMeta, at?: Date) {
   );
 }
 
-/** Cobertura de delivery para la ubicación del visitante. */
-export function deliveryFor(business: BusinessWithMeta, location: Location) {
-  if (!business.accepts_delivery || !location) return null;
-  const zone = zoneFor(
-    business.delivery_zones,
-    location.departmentId,
-    location.municipalityId,
-  );
+export type DeliveryQuote = { fee: number; days: number } | null;
+
+/** Cobertura del delivery de la plataforma (igual para todos los negocios). */
+export function deliveryFor(zones: PlatformZone[], location: Location): DeliveryQuote {
+  if (!location) return null;
+  const zone = zoneFor(zones, location.departmentId, location.municipalityId);
   return zone ? { fee: zone.fee_minor, days: zone.estimated_days } : null;
 }

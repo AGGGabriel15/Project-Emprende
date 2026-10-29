@@ -33,6 +33,10 @@ export async function requireCustomer(next = "/") {
   return requireProfile(["customer"], next);
 }
 
+export async function requireCourier(next = "/repartidor") {
+  return requireProfile(["courier"], next);
+}
+
 /** Perfil completo = teléfono y ubicación (requisito tras login con Google). */
 export function isProfileComplete(profile: Profile) {
   return Boolean(profile.phone && profile.department_id && profile.municipality_id);

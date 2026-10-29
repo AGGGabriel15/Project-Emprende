@@ -5,15 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
+import { TIER_INFO } from "@/lib/validations/business";
+import type { BusinessTier } from "@/types/domain";
 
 export const metadata: Metadata = { title: "Solicitudes" };
 
 export default async function ApplicationsPage() {
   const supabase = await createClient();
-  const [{ data: pending }, { data: history }] = await Promise.all([
+  const [{ data: pending }, { data: history }, { data: upgrades }] = await Promise.all([
     supabase
       .from("businesses")
-      .select("id, trade_name, legal_name, submitted_at, category:platform_categories(name), owner:profiles!businesses_owner_id_fkey(full_name, email)")
+      .select("id, trade_name, legal_name, tier, verification_visit_at, submitted_at, category:platform_categories(name), owner:profiles!businesses_owner_id_fkey(full_name, email)")
       .eq("status", "pending")
       .order("submitted_at"),
     supabase
@@ -22,6 +24,11 @@ export default async function ApplicationsPage() {
       .not("decision", "is", null)
       .order("reviewed_at", { ascending: false })
       .limit(15),
+    supabase
+      .from("businesses")
+      .select("id, trade_name, upgrade_requested_at")
+      .not("upgrade_requested_at", "is", null)
+      .order("upgrade_requested_at"),
   ]);
 
   return (
@@ -39,7 +46,11 @@ export default async function ApplicationsPage() {
                 <li key={b.id}>
                   <Link href={`/admin/solicitudes/${b.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/50">
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold">{b.trade_name}</p>
+                      <p className="flex flex-wrap items-center gap-2 font-semibold">
+                        {b.trade_name}
+                        <Badge tone={b.tier === "informal" ? "violet" : "brand"}>{TIER_INFO[b.tier as BusinessTier].label}</Badge>
+                        {b.tier === "informal" && !b.verification_visit_at && <Badge tone="amber">Falta visita</Badge>}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {category?.name} · {owner?.full_name} ({owner?.email})
                       </p>
@@ -52,6 +63,25 @@ export default async function ApplicationsPage() {
             })}
           </ul>
         </Card>
+      )}
+
+      {(upgrades ?? []).length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold">Solicitudes de formalización</h2>
+          <Card>
+            <ul className="divide-y">
+              {(upgrades ?? []).map((b) => (
+                <li key={b.id}>
+                  <Link href={`/admin/solicitudes/${b.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/50">
+                    <p className="min-w-0 flex-1 font-semibold">{b.trade_name}</p>
+                    <span className="text-xs text-muted-foreground">Desde {formatDate(b.upgrade_requested_at!)}</span>
+                    <ChevronRight className="size-5 text-muted-foreground" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
       )}
 
       {(history ?? []).length > 0 && (

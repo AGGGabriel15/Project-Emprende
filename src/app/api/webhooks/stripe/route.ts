@@ -5,8 +5,9 @@ import { getStripe } from "@/features/payments/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Única vía para pasar un pedido a "preparing" con Stripe: nunca por la
- * redirección del navegador. Verifica la firma y procesa cada event.id una vez.
+ * Vía principal para pasar un pedido a "preparing" con Stripe (respaldo:
+ * features/payments/sync consulta la sesión a Stripe al volver del pago).
+ * Verifica la firma y procesa cada event.id una vez.
  */
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");

@@ -10,6 +10,7 @@ const PROTECTED = [
   "/completar-perfil",
   "/vendedor",
   "/admin",
+  "/repartidor",
 ];
 
 export async function proxy(request: NextRequest) {
@@ -52,11 +53,14 @@ export async function proxy(request: NextRequest) {
   if (role && pathname.startsWith("/admin") && role !== "admin") {
     return NextResponse.redirect(new URL("/", request.url));
   }
+  if (role && pathname.startsWith("/repartidor") && role !== "courier") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
   return response;
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

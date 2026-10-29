@@ -139,16 +139,16 @@ export function CheckoutForm({
                 disabled={!business.accepts_pickup}
                 onClick={() => setService("pickup")}
                 icon={<Store />}
-                title="Para llevar"
-                text={business.accepts_pickup ? "Retiras en el local. Sin costo de envío." : "Este negocio no ofrece retiro."}
+                title="Retiro en el negocio"
+                text={business.accepts_pickup ? "Sin costo de envío. Entregas tu PIN al recogerlo." : "Este negocio no ofrece retiro."}
               />
               <ServiceOption
                 active={service === "delivery"}
-                disabled={!business.accepts_delivery}
+                disabled={false}
                 onClick={() => setService("delivery")}
                 icon={<Bike />}
-                title="Delivery"
-                text={business.accepts_delivery ? "El negocio lo envía a tu dirección." : "Este negocio no hace envíos."}
+                title="Delivery Catarina Market"
+                text="Lo recogemos, lo revisamos y te lo entregamos con tu PIN."
               />
             </CardBody>
           </Card>
@@ -200,10 +200,10 @@ export function CheckoutForm({
                 {data && addressId && !data.canDeliver && (
                   <p className="mt-3 flex items-start gap-2 rounded-xl bg-warning-soft p-3 text-sm">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
-                    {business.trade_name} no envía a esta dirección.
+                    Aún no entregamos en esta dirección.
                     {business.accepts_pickup && (
                       <button type="button" className="cursor-pointer font-semibold text-primary underline" onClick={() => setService("pickup")}>
-                        Cambiar a Para llevar
+                        Cambiar a retiro en el negocio
                       </button>
                     )}
                   </p>
@@ -284,6 +284,13 @@ export function CheckoutForm({
                         <dd className="tabular-nums">{addressId && data.canDeliver ? formatMoney(data.deliveryFee) : "—"}</dd>
                       </div>
                     )}
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">
+                        Tarifa de servicio
+                        <span className="block text-xs">Pago protegido, PIN de entrega y soporte</span>
+                      </dt>
+                      <dd className="tabular-nums">{formatMoney(data.serviceFee)}</dd>
+                    </div>
                     <div className="flex justify-between border-t pt-3 text-base font-semibold">
                       <dt>Total</dt>
                       <dd className="tabular-nums">{formatMoney(data.total)}</dd>

@@ -16,8 +16,8 @@ export type ReportOrder = Pick<
 
 export type Granularity = "day" | "week" | "month";
 
-const SOLD: OrderStatus[] = ["preparing", "ready_for_pickup", "on_the_way", "completed"];
-const LOST: OrderStatus[] = ["cancelled", "refunded"];
+const SOLD: OrderStatus[] = ["preparing", "ready", "ready_for_pickup", "on_the_way", "delivered", "disputed", "completed"];
+const LOST: OrderStatus[] = ["cancelled", "refunded", "returned"];
 
 /** Fecha local (Managua) YYYY-MM-DD. */
 export function localDate(value: string | Date) {

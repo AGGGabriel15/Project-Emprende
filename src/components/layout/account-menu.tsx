@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bike,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -58,6 +59,13 @@ export function AccountMenu({ user }: { user: ShellUser }) {
           <DropdownMenuItem asChild>
             <Link href={ROLE_HOME.admin}>
               <ShieldCheck /> Panel de administración
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.role === "courier" && (
+          <DropdownMenuItem asChild>
+            <Link href={ROLE_HOME.courier}>
+              <Bike /> Mis entregas
             </Link>
           </DropdownMenuItem>
         )}

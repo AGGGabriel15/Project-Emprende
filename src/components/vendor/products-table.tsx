@@ -84,7 +84,12 @@ export function ProductsTable({ products, categories }: { products: Product[]; c
                   <Badge tone="amber">Stock bajo</Badge>
                 ) : null}
                 {!product.is_active && <Badge tone="gray">Oculto</Badge>}
+                {product.review_status === "pending" && <Badge tone="blue">En revisión</Badge>}
+                {product.review_status === "rejected" && <Badge tone="red">Con observaciones</Badge>}
               </div>
+              {product.review_status === "rejected" && product.review_note && (
+                <p className="mt-1 text-xs text-destructive">Corrige: {product.review_note}</p>
+              )}
             </div>
             <label className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Stock</span>

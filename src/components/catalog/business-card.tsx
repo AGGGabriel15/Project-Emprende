@@ -1,13 +1,9 @@
-import { Bike, Store } from "lucide-react";
+import { BadgeCheck, Bike, Store } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  businessOpenState,
-  deliveryFor,
-  type BusinessWithMeta,
-  type Location,
-} from "@/features/catalog/meta";
+import { businessOpenState, type BusinessWithMeta, type DeliveryQuote, type Location } from "@/features/catalog/meta";
 import { cn, formatMoney } from "@/lib/utils";
+import { TIER_INFO } from "@/lib/validations/business";
 import { OpenBadge } from "./open-badge";
 import { CategoryIcon } from "./product-image";
 import { Rating } from "./rating";
@@ -15,12 +11,13 @@ import { Rating } from "./rating";
 export function BusinessCard({
   business,
   location,
+  delivery,
 }: {
   business: BusinessWithMeta;
   location: Location;
+  delivery: DeliveryQuote;
 }) {
   const state = businessOpenState(business);
-  const delivery = deliveryFor(business, location);
   return (
     <Link
       href={`/negocios/${business.slug}`}
@@ -51,11 +48,14 @@ export function BusinessCard({
           </h3>
           <Rating value={business.rating_avg} count={business.rating_count} className="shrink-0" />
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{business.category?.name}</p>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          {business.category?.name} ·
+          <BadgeCheck className="size-3.5 text-primary" aria-hidden />
+          <span title={TIER_INFO[business.tier].badge}>{TIER_INFO[business.tier].label}</span>
+        </p>
         <OpenBadge state={state} className="mt-2" />
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-          {business.accepts_delivery && (
-            <span
+          <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2 py-1",
                 delivery ? "bg-primary-soft text-primary" : "bg-muted text-muted-foreground",
@@ -65,13 +65,12 @@ export function BusinessCard({
               {delivery
                 ? `Delivery ${formatMoney(delivery.fee)}`
                 : location
-                  ? "No envía a tu zona"
-                  : "Delivery"}
-            </span>
-          )}
+                  ? "Aún no llegamos a tu zona"
+                  : "Delivery Catarina Market"}
+          </span>
           {business.accepts_pickup && (
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-muted-foreground">
-              <Store className="size-3.5" /> Para llevar
+              <Store className="size-3.5" /> Retiro en el local
             </span>
           )}
         </div>

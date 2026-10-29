@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { appUrl, failure, invalid, success } from "@/lib/actions";
-import { destinationFor } from "@/lib/roles";
+import { destinationFor, needsProfileCompletion } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import {
   loginSchema,
@@ -48,7 +48,7 @@ export async function signIn(input: unknown, next?: string) {
     return failure({ message: "Tu cuenta está desactivada. Contacta a soporte." });
   }
   const destination = destinationFor(profile?.role ?? "customer", safeNext(next));
-  if (!profile?.phone || !profile?.department_id) {
+  if (!profile || needsProfileCompletion(profile)) {
     return success({ redirectTo: `/completar-perfil?next=${encodeURIComponent(destination)}` });
   }
   return success({ redirectTo: destination });

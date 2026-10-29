@@ -5,7 +5,7 @@ import { SimpleBarChart } from "@/components/charts/bar-chart";
 import { PeriodFilter } from "@/components/charts/period-filter";
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { Card, CardBody, CardHeader, PageHeader, StatCard } from "@/components/ui/card";
-import { countByStatus, salesSeries, summarize } from "@/features/reports/compute";
+import { countByStatus, periodRange, salesSeries, summarize } from "@/features/reports/compute";
 import { reportOrders, seriesLabel } from "@/features/reports/queries";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPercent } from "@/lib/utils";
@@ -18,10 +18,21 @@ type SearchParams = Promise<{ periodo?: string }>;
 export default async function AdminDashboard({ searchParams }: { searchParams: SearchParams }) {
   const { periodo = "30d" } = await searchParams;
   const supabase = await createClient();
-  const [{ orders, range }, { data: businesses }] = await Promise.all([
+  const range = periodRange(periodo);
+  const [{ orders }, { data: businesses }, { data: profitData }] = await Promise.all([
     reportOrders({ period: periodo }),
     supabase.from("businesses").select("id, trade_name, slug, status"),
+    supabase.rpc("platform_profit", { p_start: range.from, p_end: range.to }),
   ]);
+  const profit = (profitData ?? {}) as Record<string, number>;
+  const profitRows: [string, number, string?][] = [
+    ["Comisiones (pedidos completados)", profit.commission ?? 0],
+    ["Tarifas de servicio", profit.service_fees ?? 0],
+    ["Envíos cobrados", profit.delivery_fees ?? 0],
+    ["Costo de repartidores", -(profit.courier_costs ?? 0)],
+    ["Pasarela (estimado)", -(profit.gateway_fees ?? 0)],
+    ["Reembolsos a cargo de la plataforma", -(profit.platform_refunds ?? 0)],
+  ];
   const summary = summarize(orders);
   const series = salesSeries(orders, range.from, range.to, range.granularity);
   const byStatus = countByStatus(orders);
@@ -76,6 +87,27 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
           </CardBody>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader
+          title="Ganancia de la plataforma"
+          description={`Pedidos pagados en el período. Reserva para reclamos apartada: ${formatMoney(profit.reserve ?? 0)}. Reembolsos totales: ${formatMoney(profit.refunds_total ?? 0)}.`}
+        />
+        <CardBody>
+          <dl className="space-y-2 text-sm">
+            {profitRows.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className={value < 0 ? "tabular-nums text-destructive" : "tabular-nums"}>{formatMoney(value)}</dd>
+              </div>
+            ))}
+            <div className="flex justify-between gap-4 border-t pt-2 text-base font-semibold">
+              <dt>Ganancia neta estimada</dt>
+              <dd className="tabular-nums">{formatMoney(profit.net ?? 0)}</dd>
+            </div>
+          </dl>
+        </CardBody>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader title="Top negocios" description="Por ventas de productos en el período" />

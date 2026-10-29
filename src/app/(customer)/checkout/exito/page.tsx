@@ -1,11 +1,13 @@
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { ClearOrderedItems } from "@/components/customer/clear-ordered-items";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getOrderDetail } from "@/features/orders/queries";
+import { syncStripePayment } from "@/features/payments/sync";
 import { requireCustomer } from "@/lib/auth";
 import { formatMoney } from "@/lib/utils";
 
@@ -13,12 +15,19 @@ export const metadata: Metadata = { title: "Pedido recibido" };
 
 type SearchParams = Promise<{ pedido?: string }>;
 
-/** Solo muestra el estado: la confirmación real llega por webhook (Realtime refresca). */
+/**
+ * Muestra el estado del pago. Si el webhook aún no llegó, consulta la sesión a
+ * Stripe (servidor a servidor) y acredita el pedido; Realtime refresca después.
+ */
 export default async function SuccessPage({ searchParams }: { searchParams: SearchParams }) {
   const { pedido } = await searchParams;
-  await requireCustomer("/pedidos");
+  const { profile } = await requireCustomer("/pedidos");
   const order = pedido ? await getOrderDetail(pedido) : null;
-  if (!order) notFound();
+  if (!order || order.customer_id !== profile.id) notFound();
+  // Next memoiza la consulta dentro del render: tras acreditar se recarga la ruta.
+  if (order.status === "pending_payment" && (await syncStripePayment(order.id))) {
+    redirect(`/checkout/exito?pedido=${order.id}`);
+  }
 
   const confirmed = order.payment_status === "paid" || order.payment_status === "refunded";
   const failed = order.status === "cancelled" || order.status === "refunded";
@@ -26,6 +35,9 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
   return (
     <div className="container-page max-w-lg py-12">
       <RealtimeRefresh channel={`order-success:${order.id}`} table="orders" filter={`id=eq.${order.id}`} />
+      {confirmed && (
+        <ClearOrderedItems productIds={order.items.map((item) => item.product_id).filter((id): id is string => Boolean(id))} />
+      )}
       <Card className="p-8 text-center">
         {failed ? (
           <XCircle className="mx-auto size-14 text-destructive" />

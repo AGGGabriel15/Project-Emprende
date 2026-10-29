@@ -42,7 +42,7 @@ export default async function SellPage() {
             { icon: Percent, title: "Comisión clara", text: `${formatPercent(rate)} sobre productos. Sin costos fijos ni letra pequeña.` },
             { icon: ClipboardCheck, title: "Horarios y zonas", text: "Define cuándo abres, a qué departamentos envías y cuánto cobras." },
             { icon: BarChart3, title: "Reportes", text: "Ventas, productos más vendidos y liquidaciones exportables a Excel o PDF." },
-            { icon: FileText, title: "Requisitos", text: "RUC de la DGI, cédula del propietario, matrícula de la Alcaldía y una cuenta bancaria." },
+            { icon: FileText, title: "Con o sin RUC", text: "¿Vendes desde tu casa? Te verificamos con tu cédula, una selfie y una visita. Si tienes RUC y matrícula, entras como Negocio formal." },
           ].map(({ icon: Icon, title, text }) => (
             <Card key={title} className="p-6">
               <span className="grid size-11 place-items-center rounded-xl bg-primary-soft text-primary">

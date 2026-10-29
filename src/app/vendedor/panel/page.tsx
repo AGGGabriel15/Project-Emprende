@@ -1,16 +1,18 @@
 import { AlertTriangle, Ban, Coins, Package, Receipt, ShoppingBag, Star, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Stars } from "@/components/catalog/rating";
+import { ReviewItem } from "@/components/catalog/review-item";
 import { SimpleBarChart } from "@/components/charts/bar-chart";
 import { PeriodFilter } from "@/components/charts/period-filter";
 import { Button } from "@/components/ui/button";
+import { TierCard } from "@/components/vendor/tier-card";
 import { Card, CardBody, CardHeader, PageHeader, StatCard } from "@/components/ui/card";
+import { withReviewAuthors } from "@/features/catalog/queries";
 import { salesSeries, summarize, topProducts } from "@/features/reports/compute";
 import { reportOrders, seriesLabel } from "@/features/reports/queries";
 import { requireApprovedBusiness } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatMoney, formatPercent } from "@/lib/utils";
+import { formatMoney, formatPercent } from "@/lib/utils";
 import type { Product, Review } from "@/types/domain";
 
 export const metadata: Metadata = { title: "Panel" };
@@ -27,6 +29,7 @@ export default async function VendorDashboard({ searchParams }: { searchParams: 
     supabase.from("reviews").select("*").eq("business_id", business.id).order("created_at", { ascending: false }).limit(4),
     supabase.from("orders").select("id", { count: "exact", head: true }).eq("business_id", business.id).eq("status", "preparing"),
   ]);
+  const recentReviews = await withReviewAuthors(supabase, (reviews ?? []) as Review[]);
   const summary = summarize(orders);
   const series = salesSeries(orders, range.from, range.to, range.granularity);
   const top = topProducts(orders);
@@ -38,6 +41,8 @@ export default async function VendorDashboard({ searchParams }: { searchParams: 
         title={`Hola, ${business.trade_name}`}
         action={<PeriodFilter basePath="/vendedor/panel" active={periodo} />}
       />
+
+      <TierCard />
 
       {(preparing ?? 0) > 0 && (
         <Link href="/vendedor/pedidos" className="mb-6 flex items-center justify-between gap-3 rounded-2xl bg-primary p-4 text-primary-foreground transition hover:bg-primary-hover">
@@ -121,17 +126,13 @@ export default async function VendorDashboard({ searchParams }: { searchParams: 
         <Card>
           <CardHeader title="Reseñas recientes" description={business.rating_count ? `${Number(business.rating_avg).toFixed(1)} de 5 · ${business.rating_count} reseñas` : undefined} />
           <CardBody>
-            {(reviews ?? []).length === 0 ? (
+            {recentReviews.length === 0 ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground"><Star className="size-4" /> Aún no tienes reseñas.</p>
             ) : (
               <ul className="space-y-3">
-                {(reviews as Review[]).map((r) => (
-                  <li key={r.id} className="text-sm">
-                    <div className="flex items-center justify-between">
-                      <Stars value={r.rating} size="size-3.5" />
-                      <span className="text-xs text-muted-foreground">{formatDate(r.created_at, false)}</span>
-                    </div>
-                    {r.comment && <p className="mt-1 text-muted-foreground">{r.comment}</p>}
+                {recentReviews.map((r) => (
+                  <li key={r.id}>
+                    <ReviewItem review={r} compact />
                   </li>
                 ))}
               </ul>

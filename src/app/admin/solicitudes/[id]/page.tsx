@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ExternalLink, MapPinCheck, X } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,13 +7,14 @@ import { ActionButton, PromptActionButton } from "@/components/admin/action-butt
 import { DocumentLink } from "@/components/admin/document-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui/card";
-import { reviewApplication } from "@/features/admin/actions";
+import { recordVerificationVisit, reviewApplication, reviewFormalUpgrade } from "@/features/admin/actions";
 import { getGeo, placeName } from "@/features/location/server";
+import { mapsUrl } from "@/lib/maps";
+import { formatPhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPercent } from "@/lib/utils";
-import { REQUIRED_DOCUMENTS } from "@/lib/validations/business";
-import type { BankAccount, Business, BusinessDocument } from "@/types/domain";
-import { formatPhone } from "@/lib/phone";
+import { REQUIRED_DOCUMENTS, TIER_INFO, UPGRADE_DOCUMENTS } from "@/lib/validations/business";
+import type { BankAccount, Business, BusinessDocument, BusinessPrivate } from "@/types/domain";
 
 export const metadata: Metadata = { title: "Revisar solicitud" };
 
@@ -27,10 +28,21 @@ const STATUS = {
   suspended: ["Suspendido", "red"],
 } as const;
 
+const VISIT_CHECKLIST = [
+  "La dirección y la ubicación del mapa corresponden al lugar.",
+  "La persona coincide con la cédula y la selfie.",
+  "Los productos existen y coinciden con las fotos.",
+  "Puede empacar los pedidos y entregarlos al repartidor.",
+];
+
+// Compara nombres sin tildes, mayúsculas ni espacios extra.
+const normalize = (value: string | null | undefined) =>
+  (value ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+
 export default async function ApplicationDetail({ params }: { params: Params }) {
   const { id } = await params;
   const supabase = await createClient();
-  const [{ data }, { data: documents }, { data: bank }, geo] = await Promise.all([
+  const [{ data }, { data: documents }, { data: bank }, { data: privateData }, geo] = await Promise.all([
     supabase
       .from("businesses")
       .select("*, category:platform_categories(name), owner:profiles!businesses_owner_id_fkey(full_name, email, phone, cedula)")
@@ -38,6 +50,7 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
       .maybeSingle(),
     supabase.from("business_documents").select("*").eq("business_id", id),
     supabase.from("business_bank_accounts").select("*").eq("business_id", id).maybeSingle(),
+    supabase.from("business_private").select("*").eq("business_id", id).maybeSingle(),
     getGeo(),
   ]);
   if (!data) notFound();
@@ -47,7 +60,15 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
   };
   const docs = (documents ?? []) as BusinessDocument[];
   const account = bank as BankAccount | null;
+  const privateInfo = privateData as BusinessPrivate | null;
   const [statusLabel, tone] = STATUS[business.status];
+  const informal = business.tier === "informal";
+  const needsVisit = informal && !business.verification_visit_at;
+  const holderMatches = account ? normalize(account.account_holder) === normalize(business.legal_name) : null;
+  const requiredDocs = [
+    ...REQUIRED_DOCUMENTS[business.tier],
+    ...(business.upgrade_requested_at ? UPGRADE_DOCUMENTS : []),
+  ];
 
   return (
     <div className="max-w-4xl">
@@ -57,12 +78,23 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
       <PageHeader
         title={business.trade_name}
         description={business.submitted_at ? `Enviada el ${formatDate(business.submitted_at)}` : undefined}
-        action={<Badge tone={tone}>{statusLabel}</Badge>}
+        action={
+          <div className="flex gap-2">
+            <Badge tone={informal ? "violet" : "brand"}>{TIER_INFO[business.tier].label}</Badge>
+            <Badge tone={tone}>{statusLabel}</Badge>
+          </div>
+        }
       />
 
       {business.status === "pending" && (
         <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
-          <p className="text-sm text-muted-foreground">Verifica que el RUC, la cédula y la matrícula coincidan con los datos declarados.</p>
+          <p className="max-w-md text-sm text-muted-foreground">
+            {informal
+              ? needsVisit
+                ? "Emprendedor informal: registra la visita de verificación antes de aprobar."
+                : "Visita registrada. Revisa la cédula, la selfie y las fotos del lugar."
+              : "Verifica que el RUC, la cédula y la matrícula coincidan con los datos declarados."}
+          </p>
           <div className="flex gap-2">
             <PromptActionButton
               variant="danger"
@@ -80,6 +112,7 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
               <X /> Rechazar
             </PromptActionButton>
             <ActionButton
+              disabled={needsVisit}
               confirm={`¿Aprobar ${business.trade_name}? Podrá publicar de inmediato.`}
               success="Negocio aprobado y notificado."
               action={reviewApplication.bind(null, { businessId: business.id, decision: "approved" })}
@@ -89,22 +122,106 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
           </div>
         </Card>
       )}
+
+      {business.upgrade_requested_at && (
+        <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 border-info/30 bg-info-soft p-4">
+          <p className="max-w-md text-sm">
+            <strong>Solicita pasar a Negocio formal</strong> desde el {formatDate(business.upgrade_requested_at)}.
+            Revisa el RUC {business.ruc} y la matrícula {business.municipal_license}.
+          </p>
+          <div className="flex gap-2">
+            <PromptActionButton
+              variant="danger"
+              title="Rechazar formalización"
+              label="Motivo"
+              confirmLabel="Rechazar"
+              success="Formalización rechazada."
+              action={async (reason: string) => {
+                "use server";
+                return reviewFormalUpgrade(id, false, reason);
+              }}
+            >
+              <X /> Rechazar
+            </PromptActionButton>
+            <ActionButton
+              confirm="¿Aprobar el paso a Negocio formal?"
+              success="Ahora es Negocio formal."
+              action={reviewFormalUpgrade.bind(null, business.id, true, undefined)}
+            >
+              <Check /> Aprobar formalización
+            </ActionButton>
+          </div>
+        </Card>
+      )}
+
       {business.rejection_reason && (
         <p className="mb-6 rounded-xl bg-destructive-soft p-3 text-sm">Último rechazo: {business.rejection_reason}</p>
       )}
 
+      {informal && (
+        <Card className="mb-6">
+          <CardHeader
+            title="Visita de verificación"
+            description="Obligatoria para emprendedores informales. Queda en la auditoría con tu usuario."
+          />
+          <CardBody className="space-y-4">
+            {business.verification_visit_at ? (
+              <div className="flex gap-3 rounded-xl bg-success-soft p-4 text-sm">
+                <MapPinCheck className="size-5 shrink-0 text-success" />
+                <div>
+                  <p className="font-semibold">Visitado el {formatDate(business.verification_visit_at)}</p>
+                  <p className="mt-1 whitespace-pre-line text-muted-foreground">{privateInfo?.visit_notes}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <ul className="space-y-1.5 text-sm">
+                  {VISIT_CHECKLIST.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> {item}
+                    </li>
+                  ))}
+                </ul>
+                <PromptActionButton
+                  title="Registrar visita"
+                  description="Describe lo que verificaste en el lugar."
+                  label="Notas de la visita"
+                  placeholder="Ej.: casa con vivero en el patio, 40+ plantas, coincide con fotos; la dueña mostró su cédula."
+                  minLength={10}
+                  confirmLabel="Registrar visita"
+                  success="Visita registrada."
+                  action={async (notes: string) => {
+                    "use server";
+                    return recordVerificationVisit(id, notes);
+                  }}
+                >
+                  <MapPinCheck /> Registrar visita realizada
+                </PromptActionButton>
+              </>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader title="Datos legales" />
+          <CardHeader title={informal ? "Identidad" : "Datos legales"} />
           <CardBody>
-            <Info items={[
-              ["Razón social", business.legal_name],
-              ["Tipo de persona", business.person_type === "juridica" ? "Jurídica" : "Natural"],
-              ["RUC", business.ruc],
-              ["Régimen", business.tax_regime === "cuota_fija" ? "Cuota fija" : "Régimen general"],
-              ["Matrícula Alcaldía", business.municipal_license],
-              ["Comisión aceptada", business.accepted_commission_rate !== null ? formatPercent(Number(business.accepted_commission_rate)) : "—"],
-            ]} />
+            <Info
+              items={[
+                [informal ? "Nombre (cédula)" : "Razón social", business.legal_name],
+                ...(informal
+                  ? []
+                  : ([
+                      ["Tipo de persona", business.person_type === "juridica" ? "Jurídica" : "Natural"],
+                      ["RUC", business.ruc],
+                      ["Régimen", business.tax_regime === "cuota_fija" ? "Cuota fija" : "Régimen general"],
+                      ["Matrícula Alcaldía", business.municipal_license],
+                    ] as [string, string | null][])),
+                ["Comisión aceptada", business.accepted_commission_rate !== null ? formatPercent(Number(business.accepted_commission_rate)) : "—"],
+                ["Declaración jurada", business.declaration_accepted_at ? formatDate(business.declaration_accepted_at) : "—"],
+              ]}
+            />
           </CardBody>
         </Card>
         <Card>
@@ -121,7 +238,7 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
         <Card>
           <CardHeader title="Documentos" description="Se abren con un enlace temporal de 10 minutos." />
           <CardBody className="space-y-2">
-            {REQUIRED_DOCUMENTS.map((required) => {
+            {requiredDocs.map((required) => {
               const doc = docs.find((d) => d.doc_type === required.type);
               return (
                 <div key={required.type} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm">
@@ -134,7 +251,7 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
         </Card>
         <Card>
           <CardHeader title="Local y liquidaciones" />
-          <CardBody>
+          <CardBody className="space-y-3">
             <Info items={[
               ["Categoría", business.category?.name],
               ["Ubicación", placeName(geo, business.municipality_id)],
@@ -143,6 +260,22 @@ export default async function ApplicationDetail({ params }: { params: Params }) 
               ["Banco", account ? `${account.bank_name} · ${account.account_type} · ${account.currency}` : "—"],
               ["Cuenta", account ? `${account.account_number} (${account.account_holder})` : "—"],
             ]} />
+            {privateInfo?.latitude != null && privateInfo.longitude != null && (
+              <a
+                href={mapsUrl(privateInfo.latitude, privateInfo.longitude)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                Ver ubicación exacta en el mapa <ExternalLink className="size-3.5" />
+              </a>
+            )}
+            {holderMatches === false && (
+              <p className="flex gap-2 rounded-xl bg-warning-soft p-3 text-sm">
+                <AlertTriangle className="size-4 shrink-0 text-warning" />
+                El titular de la cuenta no coincide con {informal ? "el nombre de la cédula" : "la razón social"}.
+              </p>
+            )}
           </CardBody>
         </Card>
       </div>

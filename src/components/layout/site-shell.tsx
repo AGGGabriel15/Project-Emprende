@@ -2,7 +2,7 @@ import { CartSync } from "@/components/customer/cart-sync";
 import { ViewerProvider } from "@/components/viewer";
 import { getMyBusiness, getSession } from "@/lib/auth";
 import { canShop } from "@/lib/roles";
-import type { Profile } from "@/types/domain";
+import type { Profile, Role } from "@/types/domain";
 import { Footer } from "./footer";
 import { MobileNav } from "./mobile-nav";
 import { SiteHeader } from "./site-header";
@@ -15,7 +15,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ViewerProvider role={user?.role ?? null}>
-      {user && canShop(user.role) && <CartSync userId={user.id} />}
+      <CartSync userId={user && canShop(user.role) ? user.id : null} />
       <SiteHeader user={user} />
       <main className="min-h-[calc(100dvh-4rem)] pb-24 md:pb-0">{children}</main>
       <Footer />
@@ -29,7 +29,7 @@ export type ShellUser = {
   name: string;
   email: string;
   avatarUrl: string | null;
-  role: "customer" | "vendor" | "admin";
+  role: Role;
   hasBusiness: boolean;
   location: { departmentId: number; municipalityId: number } | null;
 };

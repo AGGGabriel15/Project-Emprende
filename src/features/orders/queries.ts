@@ -5,9 +5,14 @@ import type {
   OrderStatus,
   OrderStatusHistory,
   Review,
+  Claim,
+  Shipment,
 } from "@/types/domain";
 
-export type BoardOrder = Order & { items: OrderItem[] };
+export type BoardOrder = Order & {
+  items: OrderItem[];
+  shipment: { status: string; courier_name: string } | null;
+};
 
 export type OrderListItem = Order & {
   business: { trade_name: string; slug: string; logo_url: string | null };
@@ -19,7 +24,9 @@ export type OrderDetail = Order & {
   items: OrderItem[];
   history: OrderStatusHistory[];
   review: Review | null;
-  refunds: { amount_minor: number; reason: string; created_at: string; provider_ref: string | null }[];
+  refunds: { amount_minor: number; reason: string; status: "pending" | "processed" | "failed"; created_at: string; processed_at: string | null }[];
+  shipment: Shipment | null;
+  claims: Claim[];
 };
 
 export async function listOrders(filter: { customerId?: string; businessId?: string; statuses?: OrderStatus[]; limit?: number }) {
@@ -42,7 +49,7 @@ export async function getOrderDetail(id: string) {
   const { data } = await supabase
     .from("orders")
     .select(
-      "*, business:businesses(id, trade_name, slug, phone, whatsapp, address_line, logo_url), items:order_items(*), history:order_status_history(*), review:reviews(*), refunds(amount_minor, reason, created_at, provider_ref)",
+      "*, business:businesses(id, trade_name, slug, phone, whatsapp, address_line, logo_url), items:order_items(*), history:order_status_history(*), review:reviews(*), refunds(amount_minor, reason, status, created_at, processed_at), shipment:shipments(*), claims(*)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -52,5 +59,6 @@ export async function getOrderDetail(id: string) {
     ...order,
     review: Array.isArray(order.review) ? (order.review[0] ?? null) : order.review,
     history: [...order.history].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    claims: [...(order.claims ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
   } as OrderDetail;
 }

@@ -12,7 +12,7 @@ import { canShop } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import type { Address, Profile } from "@/types/domain";
 
-const ROLE_LABEL = { customer: "Cliente", vendor: "Vendedor", admin: "Administrador" };
+const ROLE_LABEL = { customer: "Cliente", vendor: "Vendedor", admin: "Administrador", courier: "Repartidor" };
 
 /** Perfil (foto, datos, direcciones y seguridad): /cuenta, /vendedor/perfil y /admin/perfil. */
 export async function AccountSettings({ profile }: { profile: Profile }) {

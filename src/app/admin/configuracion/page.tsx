@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LimitsForm } from "@/components/admin/limits-form";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { PageHeader } from "@/components/ui/card";
 import { stripeConfigured } from "@/features/payments/provider";
@@ -24,6 +25,17 @@ export default async function AdminSettingsPage() {
           payments: process.env.PAYMENTS_MODE !== "mock" && stripeConfigured() ? "Stripe (modo test)" : "Pasarela simulada",
           email: process.env.RESEND_API_KEY ? "Resend" : "Solo consola (sin RESEND_API_KEY)",
           sentry: process.env.NEXT_PUBLIC_SENTRY_DSN ? "Activo" : "Desactivado",
+        }}
+      />
+      <LimitsForm
+        values={{
+          first_products_review: Number(settings.first_products_review ?? 10),
+          informal_max_active_orders: Number(settings.informal_max_active_orders ?? 5),
+          informal_monthly_cap_minor: Number(settings.informal_monthly_cap_minor ?? 2000000),
+          informal_trusted_after_orders: Number(settings.informal_trusted_after_orders ?? 20),
+          informal_trusted_max_active_orders: Number(settings.informal_trusted_max_active_orders ?? 15),
+          informal_trusted_monthly_cap_minor: Number(settings.informal_trusted_monthly_cap_minor ?? 5000000),
+          formal_max_active_orders: Number(settings.formal_max_active_orders ?? 30),
         }}
       />
     </div>

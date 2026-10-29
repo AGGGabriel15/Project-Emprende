@@ -3,7 +3,7 @@
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createRealtimeClient } from "@/lib/supabase/client";
 
 type Row = Record<string, unknown>;
 
@@ -18,7 +18,7 @@ export function RealtimeRefresh({
   onChange,
 }: {
   channel: string;
-  table: "orders" | "notifications";
+  table: "orders" | "notifications" | "shipments";
   filter?: string;
   onChange?: (payload: RealtimePostgresChangesPayload<Row>) => void;
 }) {
@@ -29,24 +29,30 @@ export function RealtimeRefresh({
   }, [onChange]);
 
   useEffect(() => {
-    const supabase = createClient();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const subscription = supabase
-      // Nombre único: dos componentes con el mismo canal comparten instancia y fallan.
-      .channel(`${channel}:${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table, ...(filter ? { filter } : {}) },
-        (payload: RealtimePostgresChangesPayload<Row>) => {
-          handler.current?.(payload);
-          clearTimeout(timer);
-          timer = setTimeout(() => router.refresh(), 250);
-        },
-      )
-      .subscribe();
+    let cancelled = false;
+    let cleanup = () => {};
+    void createRealtimeClient().then((supabase) => {
+      if (cancelled) return;
+      const subscription = supabase
+        // Nombre único: dos componentes con el mismo canal comparten instancia y fallan.
+        .channel(`${channel}:${crypto.randomUUID()}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table, ...(filter ? { filter } : {}) },
+          (payload: RealtimePostgresChangesPayload<Row>) => {
+            handler.current?.(payload);
+            clearTimeout(timer);
+            timer = setTimeout(() => router.refresh(), 250);
+          },
+        )
+        .subscribe();
+      cleanup = () => void supabase.removeChannel(subscription);
+    });
     return () => {
+      cancelled = true;
       clearTimeout(timer);
-      void supabase.removeChannel(subscription);
+      cleanup();
     };
   }, [channel, table, filter, router]);
 

@@ -44,9 +44,3 @@ export const closureSchema = z.object({
   reason: z.string().trim().min(3, "Indica el motivo.").max(120),
 });
 
-export const zoneSchema = z.object({
-  departmentId: z.coerce.number().int().min(1, "Elige un departamento."),
-  municipalityId: z.coerce.number().int().min(0).optional(),
-  fee: moneySchema,
-  estimatedDays: z.coerce.number().int().min(0).max(30),
-});

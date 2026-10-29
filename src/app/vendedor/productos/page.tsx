@@ -22,7 +22,7 @@ export default async function VendorProductsPage() {
     <>
       <PageHeader
         title="Productos"
-        description="Precio, stock y visibilidad de tu catálogo."
+        description="Precio, stock y visibilidad de tu catálogo. Tus primeros productos los revisa la administración antes de publicarse (normalmente en menos de 24 h)."
         action={
           <Button asChild>
             <Link href="/vendedor/productos/nuevo">

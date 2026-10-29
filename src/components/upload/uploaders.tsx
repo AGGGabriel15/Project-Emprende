@@ -196,11 +196,13 @@ export function SingleImageUploader({
 /** Documento privado (RUC, cédula, matrícula): devuelve la ruta en el bucket. */
 export function DocumentUploader({
   label,
+  hint,
   uploaded,
   onUploaded,
   disabled,
 }: {
   label: string;
+  hint?: string;
   uploaded: boolean;
   onUploaded: (path: string) => Promise<void> | void;
   disabled?: boolean;
@@ -227,7 +229,7 @@ export function DocumentUploader({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{label}</span>
         <span className="block text-xs text-muted-foreground">
-          {uploaded ? "Recibido · toca para reemplazar" : "JPG, PNG, WebP o PDF · máx. 10 MB"}
+          {uploaded ? "Recibido · toca para reemplazar" : (hint ?? "JPG, PNG, WebP o PDF · máx. 10 MB")}
         </span>
       </span>
       <input

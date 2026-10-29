@@ -6,11 +6,12 @@ import { ProductCard } from "@/components/catalog/product-card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/card";
 import {
+  getPlatformZones,
   listBusinesses,
   listCategories,
   searchProducts,
 } from "@/features/catalog/queries";
-import { businessOpenState } from "@/features/catalog/meta";
+import { businessOpenState, deliveryFor } from "@/features/catalog/meta";
 import { getVisitorLocation } from "@/features/location/server";
 
 export default async function HomePage() {
@@ -20,6 +21,7 @@ export default async function HomePage() {
     searchProducts({ limit: 8 }),
     getVisitorLocation(),
   ]);
+  const delivery = deliveryFor(await getPlatformZones(), location);
   const openCount = businesses.filter((b) => businessOpenState(b).open).length;
 
   return (
@@ -79,7 +81,7 @@ export default async function HomePage() {
           {businesses.length ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {businesses.slice(0, 8).map((business) => (
-                <BusinessCard key={business.id} business={business} location={location} />
+                <BusinessCard key={business.id} business={business} location={location} delivery={delivery} />
               ))}
             </div>
           ) : (

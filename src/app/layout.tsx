@@ -13,7 +13,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: "Catarina Market · Artesanías, plantas y flores de Catarina",
+    default: "Catarina Market",
     template: "%s · Catarina Market",
   },
   description:

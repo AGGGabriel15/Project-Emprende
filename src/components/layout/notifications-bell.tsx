@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { markNotificationsRead } from "@/features/account/actions";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, createRealtimeClient } from "@/lib/supabase/client";
 import { cn, formatDate } from "@/lib/utils";
 import type { Notification } from "@/types/domain";
 
@@ -30,21 +30,26 @@ export function NotificationsBell({ userId }: { userId: string }) {
       .limit(15)
       .then(({ data }) => active && setItems((data ?? []) as Notification[]));
 
-    const channel = supabase
-      .channel(`notifications:${userId}:${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const notification = payload.new as Notification;
-          setItems((current) => [notification, ...current].slice(0, 15));
-          toast(notification.title, { description: notification.body });
-        },
-      )
-      .subscribe();
+    let cleanup = () => {};
+    void createRealtimeClient().then((realtime) => {
+      if (!active) return;
+      const channel = realtime
+        .channel(`notifications:${userId}:${crypto.randomUUID()}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+          (payload) => {
+            const notification = payload.new as Notification;
+            setItems((current) => [notification, ...current].slice(0, 15));
+            toast(notification.title, { description: notification.body });
+          },
+        )
+        .subscribe();
+      cleanup = () => void realtime.removeChannel(channel);
+    });
     return () => {
       active = false;
-      void supabase.removeChannel(channel);
+      cleanup();
     };
   }, [userId]);
 

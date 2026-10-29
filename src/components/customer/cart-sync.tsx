@@ -14,10 +14,13 @@ function merge(local: CartItem[], remote: CartItem[]) {
 }
 
 /**
- * Con sesión iniciada, el carrito persiste también en Supabase: al entrar se
- * combina con el guardado y cada cambio se sube con un pequeño retraso.
+ * El carrito local pertenece a una sola cuenta:
+ * - visitante que inicia sesión: su carrito se combina con el guardado;
+ * - otra cuenta en el mismo navegador: se reemplaza por el guardado de la nueva;
+ * - sin sesión (o cuenta que no compra): se vacía el carrito de la cuenta anterior.
+ * Con sesión, cada cambio se sube a Supabase con un pequeño retraso.
  */
-export function CartSync({ userId }: { userId: string }) {
+export function CartSync({ userId }: { userId: string | null }) {
   const ready = useRef(false);
 
   useEffect(() => {
@@ -29,14 +32,20 @@ export function CartSync({ userId }: { userId: string }) {
     const start = async () => {
       if (started) return;
       started = true;
+      const { ownerId, setOwner } = useCart.getState();
+      if (!userId) {
+        if (ownerId) setOwner(null, []);
+        return;
+      }
       const remote = await getServerCart();
       if (cancelled) return;
-      const merged = merge(useCart.getState().items, remote);
-      useCart.getState().replace(merged);
+      const { items: local, ownerId: owner } = useCart.getState();
+      // Mismo usuario o visitante: se combinan; carrito de otra cuenta: se descarta.
+      setOwner(userId, owner === userId || owner === null ? merge(local, remote) : remote);
       ready.current = true;
-      void saveServerCart(toPayload(merged));
+      void saveServerCart(toPayload(useCart.getState().items));
       unsubscribe = useCart.subscribe((state, previous) => {
-        if (!ready.current || state.items === previous.items) return;
+        if (!ready.current || state.items === previous.items || state.ownerId !== userId) return;
         clearTimeout(timer);
         timer = setTimeout(() => void saveServerCart(toPayload(state.items)), 800);
       });
@@ -47,6 +56,7 @@ export function CartSync({ userId }: { userId: string }) {
 
     return () => {
       cancelled = true;
+      ready.current = false;
       clearTimeout(timer);
       unsubscribe?.();
       unsubHydration();

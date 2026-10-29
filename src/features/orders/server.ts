@@ -19,6 +19,32 @@ async function loadOrderForEmail(orderId: string) {
   return data;
 }
 
+/**
+ * Quita del carrito guardado (carts/cart_items) los productos de un pedido.
+ * Se llama al crear el pedido y al confirmar el pago, para que la
+ * sincronización del carrito no los devuelva al navegador.
+ */
+export async function removeOrderedFromCart(orderId: string) {
+  const admin = createAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("customer_id, business_id, items:order_items(product_id)")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return;
+  const { data: cart } = await admin
+    .from("carts")
+    .select("id")
+    .eq("user_id", order.customer_id)
+    .eq("business_id", order.business_id)
+    .maybeSingle();
+  if (!cart) return;
+  const productIds = (order.items ?? []).map((item: { product_id: string | null }) => item.product_id).filter(Boolean);
+  if (productIds.length) await admin.from("cart_items").delete().eq("cart_id", cart.id).in("product_id", productIds);
+  const { count } = await admin.from("cart_items").select("product_id", { count: "exact", head: true }).eq("cart_id", cart.id);
+  if (!count) await admin.from("carts").delete().eq("id", cart.id);
+}
+
 /** Acredita el pago: stock, estado preparing, notificaciones y correos. Idempotente. */
 export async function confirmPayment(
   orderId: string,
@@ -36,10 +62,11 @@ export async function confirmPayment(
   if (error) throw error;
 
   if (outcome === "refund_required") {
-    await refundOrder(orderId, "Pedido sin existencias o vencido al confirmar el pago", null);
+    await refundOrder(orderId, "Pedido sin existencias o vencido al confirmar el pago");
     return outcome as string;
   }
   if (outcome === "confirmed") {
+    await removeOrderedFromCart(orderId);
     const order = await loadOrderForEmail(orderId);
     if (order) {
       await Promise.all([
@@ -59,49 +86,76 @@ export async function confirmPayment(
   return outcome as string;
 }
 
-/** Reembolsa en el proveedor y registra el refund (estado refunded). */
-export async function refundOrder(orderId: string, reason: string, processedBy: string | null) {
+type PendingRefund = {
+  id: string;
+  order_id: string;
+  amount_minor: number;
+  reason: string;
+  payment: { provider: string; provider_ref: string | null } | null;
+};
+
+/**
+ * Ejecuta en la pasarela los reembolsos en cola (los crea la base: cancelaciones,
+ * reclamos, entregas fallidas…) y los confirma con complete_refund().
+ */
+export async function processPendingRefunds(orderId?: string) {
   const admin = createAdminClient();
-  const { data: order } = await admin
-    .from("orders")
-    .select("id, total_minor, payment_provider, stripe_payment_intent_id, payment_status")
-    .eq("id", orderId)
-    .single();
-  if (!order || order.payment_status !== "paid") return;
-
-  const { data: payment } = await admin
-    .from("payments")
-    .select("provider, provider_ref")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  let providerRef: string | null = null;
+  let query = admin
+    .from("refunds")
+    .select("id, order_id, amount_minor, reason, payment:payments(provider, provider_ref)")
+    .in("status", ["pending", "failed"])
+    .order("created_at")
+    .limit(50);
+  if (orderId) query = query.eq("order_id", orderId);
+  const { data } = await query;
   const provider = await getPaymentProvider();
-  try {
-    providerRef =
-      payment?.provider === provider.name
-        ? await provider.refund(payment.provider_ref, order.total_minor)
-        : `simulado_${crypto.randomUUID().slice(0, 8)}`;
-  } catch (error) {
-    console.error("[refund]", error);
-    providerRef = `pendiente_manual_${crypto.randomUUID().slice(0, 8)}`;
-  }
-  const { error } = await admin.rpc("record_refund", {
-    p_order: orderId,
-    p_reason: reason,
-    p_provider_ref: providerRef,
-    p_processed_by: processedBy,
-  });
-  if (error) throw error;
+  let processed = 0;
+  let failed = 0;
 
-  const full = await loadOrderForEmail(orderId);
-  if (full) {
-    await sendEmail(
-      full.customer?.email,
-      `Reembolso del pedido ${full.order_number}`,
-      `<p>Cancelamos tu pedido y devolvimos el pago.</p><p><strong>Motivo:</strong> ${escape(full.cancel_reason ?? reason)}</p>${orderSummaryHtml(full)}`,
-    );
+  for (const refund of (data ?? []) as unknown as PendingRefund[]) {
+    try {
+      let reference: string;
+      if (refund.payment?.provider === provider.name && provider.name === "stripe") {
+        if (!refund.payment.provider_ref) throw new Error("El pago no tiene referencia en Stripe: reembolsa manualmente.");
+        reference = (await provider.refund(refund.payment.provider_ref, refund.amount_minor)) ?? "";
+        if (!reference) throw new Error("Stripe no devolvió referencia.");
+      } else {
+        reference = `simulado_${crypto.randomUUID().slice(0, 8)}`;
+      }
+      const { error } = await admin.rpc("complete_refund", { p_refund: refund.id, p_provider_ref: reference });
+      if (error) throw error;
+      processed++;
+      const order = await loadOrderForEmail(refund.order_id);
+      if (order) {
+        await sendEmail(
+          order.customer?.email,
+          `Reembolso del pedido ${order.order_number}`,
+          `<p>Te devolvimos <strong>C$ ${(refund.amount_minor / 100).toFixed(2)}</strong>.</p><p><strong>Motivo:</strong> ${escape(refund.reason)}</p>${orderSummaryHtml(order)}`,
+        );
+      }
+    } catch (error) {
+      failed++;
+      console.error("[refund]", error);
+      await admin.rpc("complete_refund", {
+        p_refund: refund.id,
+        p_provider_ref: null,
+        p_error: error instanceof Error ? error.message : "Error al reembolsar",
+      });
+    }
   }
+  return { processed, failed };
+}
+
+/** Pago confirmado sobre un pedido vencido o sin stock: se devuelve todo. */
+export async function refundOrder(orderId: string, reason: string) {
+  const admin = createAdminClient();
+  const { data: order } = await admin.from("orders").select("total_minor").eq("id", orderId).single();
+  if (!order) return;
+  await admin.rpc("queue_refund", {
+    p_order: orderId,
+    p_amount: order.total_minor,
+    p_reason: reason,
+    p_responsible: "platform",
+  });
+  await processPendingRefunds(orderId);
 }

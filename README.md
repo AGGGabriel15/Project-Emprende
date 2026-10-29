@@ -26,7 +26,7 @@ Copia `.env.example` a `.env.local` y completa:
 npm install
 npm run db:migrate   # esquema, funciones, RLS, buckets, Realtime y cron
 npm run db:seed      # 17 departamentos, 153 municipios, categorías, comisión 8 %
-npm run seed:demo    # opcional: admin, cliente y 3 negocios con productos
+npm run seed:demo    # opcional: admin, cliente, 2 repartidores y 3 negocios con productos
 ```
 
 Las migraciones están en `supabase/migrations/` y quedan registradas en la misma tabla que usa la CLI de Supabase. Para aplicarlas sin `DATABASE_URL`, pega cada archivo en orden en el **SQL Editor** de Supabase.
@@ -46,10 +46,13 @@ npm run dev
 Para pagos con Stripe en modo test:
 
 ```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
+npm run stripe:listen
 ```
 
-Usa la tarjeta `4242 4242 4242 4242`. Con `PAYMENTS_MODE=mock`, el checkout abre una pasarela simulada.
+El script reenvía los eventos `checkout.session.*` (la CLI 1.5x exige `--events`). Copia el
+`whsec_…` que imprime a `STRIPE_WEBHOOK_SECRET` en `.env.local` y reinicia `npm run dev`.
+Aunque el webhook no esté corriendo, al volver de Stripe la app consulta la sesión y
+acredita el pago. Usa la tarjeta `4242 4242 4242 4242`. Con `PAYMENTS_MODE=mock`, el checkout abre una pasarela simulada.
 
 ## Cuentas demo (`npm run seed:demo`)
 
@@ -60,34 +63,75 @@ Todas usan la contraseña de `SEED_DEFAULT_PASSWORD` (por defecto `Catarina2026!
 | Admin | `admin@catarina.local` |
 | Cliente | `cliente@catarina.local` |
 | Vendedores | `maria@catarina.local` (vivero), `jose@catarina.local` (artesanías), `ana@catarina.local` (floristería, solo para llevar) |
+| Repartidores | `repartidor@catarina.local` (Luis), `repartidor2@catarina.local` (Karla) |
 
 ## Reglas de negocio
 
-Las valida el servidor en funciones de Postgres (`supabase/migrations/…_functions.sql`). El frontend solo las muestra.
+Las valida el servidor en funciones de Postgres (`supabase/migrations/`). El frontend solo las muestra. El principio: **el dinero lo retiene la plataforma y solo se libera con prueba de entrega y sin reclamos.**
 
-- **Carrito por negocio:** un checkout corresponde a un negocio, un pedido y un pago. El precio y el stock se recalculan en `create_order()`; nunca se usa el precio que envía el navegador.
-- **Servicio:** Delivery o Para llevar, según lo que active el negocio. La cobertura se valida con `can_deliver()` y `delivery_zones`: la tarifa del municipio tiene prioridad sobre la del departamento.
-- **Horario:** `is_business_open()` usa la zona `America/Managua` y tiene en cuenta los cierres especiales y el botón "Cerrar ahora".
-- **Comisión:** la regla del negocio tiene prioridad sobre la de la categoría, y esta sobre la tasa global de `platform_settings` (8 %). La tasa se congela en cada pedido y no se cobra sobre el envío.
-- **Estados del pedido:** `pending_payment` → `preparing` (solo por webhook o pago confirmado) → `ready_for_pickup` / `on_the_way` → `completed`. El negocio o el admin pueden cancelar, siempre con motivo; la cancelación pasa a `refunded` y repone el stock.
-- **Stock:** se descuenta al confirmarse el pago. Si alguien compró la última unidad antes, el pedido se cancela y se reembolsa automáticamente.
-- **Pagos sin confirmar:** `pg_cron` cancela cada 5 minutos los pedidos `pending_payment` vencidos (30 minutos).
-- **Webhook:** verifica la firma e ignora eventos repetidos según `event.id`.
-- **Seguridad:** RLS en todas las tablas. Los documentos van en un bucket privado y se abren con URL firmada. Cada acción de admin queda en `audit_logs`.
+**Vendedores**
+- **Dos niveles, misma comisión.** "Emprendedor verificado" (de casa, sin RUC) sube cédula, selfie con la cédula, fotos y ubicación GPS del lugar, y la administración debe registrar una **visita de verificación** antes de aprobarlo. "Negocio formal" sube RUC y matrícula. Formalizarse sube los límites; no baja la comisión.
+- **Límites por nivel** (configurables en Admin → Configuración): el informal nuevo tiene hasta 5 pedidos en curso y C$ 20 000 al mes, que suben con historial. Los primeros 10 productos de cada negocio pasan por **Moderación**.
+- La ubicación GPS y las notas de la visita van en `business_private`, no en `businesses`, porque el catálogo lee `businesses.*` públicamente.
+
+**Pedido y logística**
+- **Carrito por negocio:** un checkout corresponde a un negocio, un pedido y un pago. `create_order()` recalcula precio, stock, horario, cobertura y límites.
+- **Total del pedido:** productos + envío (tarifa por zona de la plataforma, en `platform_delivery_zones`) + **tarifa de servicio**. El negocio recibe los productos menos la comisión.
+- **Estados:**
+  - delivery: `pending_payment` → `preparing` → `ready` → `on_the_way` → `delivered` → `completed`;
+  - retiro en el local: `preparing` → `ready_for_pickup` → `delivered` → `completed`;
+  - desvíos: `disputed` (reclamo), `cancelled`, `returned` y `refunded`.
+- **Evidencia en cada paso:**
+  - el negocio marca "listo" con una **foto** del pedido empacado;
+  - el envío queda **disponible** para los repartidores en turno; el primero que lo acepta se lo lleva (hasta 2 entregas activas por repartidor). El admin puede asignar o reasignar en **Envíos**, y recibe una alerta si nadie lo toma en 15 min;
+  - el repartidor marca "Llegué al negocio", registra la recolección con foto y GPS (o la rechaza si no coincide), y "Llegué donde el cliente", que avisa al cliente para que tenga su PIN;
+  - la entrega solo se confirma con el **PIN de 4 dígitos** que ve el cliente (más foto y GPS), y se bloquea tras 5 intentos fallidos. El negocio no interviene en la entrega;
+  - si el cliente no aparece, el repartidor registra un intento fallido; con 2, el pedido vuelve al negocio. En casos excepcionales el admin confirma "sin PIN" con motivo, y queda auditado.
+- **Automático** (`pg_cron`, cada 10 min, `run_order_maintenance()`):
+  - si vence el plazo de preparación (24 h): cancelación, reembolso total y falta al negocio;
+  - si el cliente no retira en 7 días: reembolso menos la tarifa de servicio;
+  - si pasan 48 h desde la entrega sin reclamo: el pedido queda `completed` y la venta pasa al libro contable.
+
+**Repartidores**
+- Son empleados: el admin crea sus cuentas en **Repartidores** (rol `courier`, tabla `couriers`); no hay registro público.
+- Ven el teléfono, la dirección y la nota del cliente **solo mientras la entrega está activa** (`courier_delivery()`); al terminar quedan solo el nombre de pila y el municipio. Antes de aceptar ven solo el negocio y el destino (`available_shipments()`).
+- El cliente ve al repartidor asignado (foto, vehículo, placa, calificación y su teléfono mientras va en ruta) y lo **califica** tras la entrega (`delivery_ratings`). Las calificaciones de 1–2 estrellas avisan al admin.
+
+**Dinero**
+- **Reembolsos en cola:** la base decide el monto y el responsable (`refunds.status = pending`). El servidor llama a la pasarela y confirma con `complete_refund()`. Los pendientes se reintentan desde Admin → Reclamos o con `GET /api/cron/refunds` y `Authorization: Bearer $CRON_SECRET`.
+- **Libro contable** (`ledger_entries`): registra venta, comisión y ajustes por reclamo. Las liquidaciones suman lo disponible. El informal con menos de 10 pedidos espera 7 días extra antes de cobrar.
+- **Reclamos:** el cliente tiene 48 h y debe adjuntar fotos si el producto llegó dañado, incompleto o distinto. El admin decide con la evidencia y fija monto y responsable. Si el responsable es el negocio, el reembolso se descuenta de su liquidación y suma una falta.
+- **Faltas:** se registran por cancelar un pedido pagado, no preparar a tiempo, ser rechazado en la recolección o perder un reclamo. Con 3 faltas en 90 días la tienda se suspende automáticamente.
+- **Ganancia:** el dashboard del admin muestra comisiones + servicio + envíos − costo de repartidores − pasarela (estimada) − reembolsos a cargo de la plataforma.
+
+**Otros**
+- **Comisión:** la regla del negocio tiene prioridad sobre la de la categoría, y esta sobre la tasa global. La tasa se congela en cada pedido.
+- **Pagos y webhook:** el pago se confirma por webhook o consultando la sesión de Stripe al volver del pago. El webhook ignora eventos repetidos (`event.id`).
+- **Seguridad:** RLS en todas las tablas. Los documentos y las fotos de evidencia van en buckets privados y se abren con URL firmada. Las acciones del admin quedan en `audit_logs`.
 
 ## Rutas
 
-- **Público:** `/`, `/buscar`, `/negocios`, `/negocios/[slug]`, `/productos/[id]`, `/vender`, `/terminos`, `/privacidad`
-- **Cliente:** `/carrito`, `/checkout/[businessId]`, `/pedidos` (pestañas Pendientes, Activos e Historial), `/pedidos/[id]`, `/cuenta`
-- **Vendedor:** `/vendedor/solicitud`, `/vendedor/panel`, `pedidos` (tablero en tiempo real), `productos`, `categorias`, `horarios`, `delivery`, `finanzas`, `reportes` (Excel/PDF), `configuracion`
-- **Admin:** `/admin/dashboard`, `solicitudes`, `negocios`, `usuarios`, `pedidos`, `comisiones`, `pagos-negocios`, `categorias`, `zonas`, `configuracion`, `auditoria`
+- **Público:** `/`, `/buscar`, `/negocios`, `/negocios/[slug]` (sello de nivel y métricas), `/productos/[id]`, `/vender`, `/terminos`, `/privacidad`
+- **Repartidor:** `/repartidor` (turno, disponibles y entregas activas), `/repartidor/entrega/[id]` (paso a paso), `historial`, `perfil`
+- **Cliente:** `/carrito`, `/checkout/[businessId]`, `/pedidos`, `/pedidos/[id]` (PIN, evidencia y reclamo), `/cuenta`
+- **Vendedor:** `/vendedor/solicitud`, `panel` (nivel y límites), `pedidos` (foto de listo, PIN), `productos`, `categorias`, `horarios`, `delivery`, `finanzas` (libro y faltas), `reportes`, `formalizar`, `configuracion`, `perfil`
+- **Admin:** `/admin/dashboard` (ganancia), `solicitudes` (visita y formalización), `moderacion`, `negocios`, `usuarios`, `pedidos`, `envios` (asignar, reasignar, confirmar sin PIN), `repartidores`, `reclamos` (reembolsos y faltas), `comisiones`, `pagos-negocios`, `categorias`, `zonas`, `configuracion`, `auditoria`, `perfil`
 
 ## Calidad
 
 ```bash
 npm run lint
 npm run typecheck
-npm test            # reglas: transiciones, horario, comisión, cobertura, carrito, validaciones, reportes
+npm test            # reglas en TS: estados, precios/ganancia, horario, carrito, validaciones, roles, reportes
+npm run test:db     # reglas en Postgres (niveles, pedidos, repartidores) contra Supabase, en una transacción que se revierte
 npm run build
-npm run test:e2e    # requiere seed:demo y PAYMENTS_MODE=mock
+npm run test:e2e    # requiere seed:demo; la compra completa necesita PAYMENTS_MODE=mock
+```
+
+Para correr las E2E sin tocar el `npm run dev` del puerto 3000, usa un build de producción en otro puerto:
+
+```bash
+npm run build
+PAYMENTS_MODE=mock npx next start -p 3001
+E2E_PORT=3001 npm run test:e2e -- --project=desktop
 ```

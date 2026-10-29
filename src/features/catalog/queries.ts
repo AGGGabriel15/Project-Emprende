@@ -1,3 +1,5 @@
+import { createClient as createSupabase } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import {
   businessOpenState,
@@ -9,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import type {
   PlatformCategory,
+  PlatformZone,
   Product,
   ProductCategory,
   Review,
@@ -17,11 +20,41 @@ import type {
 export type { BusinessWithMeta, Location, ProductWithBusiness };
 
 const BUSINESS_META =
-  "*, category:platform_categories(name, slug, icon), business_hours(*), business_closures(date, reason), delivery_zones(*)";
+  "*, category:platform_categories(name, slug, icon), business_hours(*), business_closures(date, reason)";
 
 function todayIso() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Managua" }).format(new Date());
 }
+
+/** Tarifas de envío de la plataforma (caché corta; /admin/zonas la invalida). */
+export const getPlatformZones = unstable_cache(
+  async (): Promise<PlatformZone[]> => {
+    const supabase = createSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } },
+    );
+    const { data } = await supabase.from("platform_delivery_zones").select("*").eq("is_active", true);
+    return (data ?? []) as PlatformZone[];
+  },
+  ["platform-zones-v1"],
+  { revalidate: 300, tags: ["platform-zones"] },
+);
+
+/** Métricas públicas del negocio (transparencia). */
+export const getBusinessStats = cache(async (businessId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("business_public_stats", { p_business: businessId }).maybeSingle<{
+    completed_orders: number;
+    on_time_rate: number | null;
+    member_since: string | null;
+  }>();
+  return {
+    completedOrders: data?.completed_orders ?? 0,
+    onTimeRate: data?.on_time_rate == null ? null : Number(data.on_time_rate),
+    memberSince: data?.member_since ?? null,
+  };
+});
 
 export const listCategories = cache(async () => {
   const supabase = await createClient();
@@ -54,8 +87,8 @@ export async function listBusinesses(options: {
   const { data } = await query;
   let businesses = (data ?? []) as BusinessWithMeta[];
   if (options.openNow) businesses = businesses.filter((b) => businessOpenState(b).open);
-  if (options.deliversOnly) {
-    businesses = businesses.filter((b) => deliveryFor(b, options.location ?? null));
+  if (options.deliversOnly && !deliveryFor(await getPlatformZones(), options.location ?? null)) {
+    businesses = [];
   }
   return businesses;
 }
@@ -76,6 +109,7 @@ export const getBusinessBySlug = cache(async (slug: string) => {
       .select("*")
       .eq("business_id", business.id)
       .eq("is_active", true)
+      .eq("review_status", "approved")
       .order("created_at", { ascending: false }),
     supabase
       .from("product_categories")
@@ -93,9 +127,17 @@ export const getBusinessBySlug = cache(async (slug: string) => {
     business,
     products: (products.data ?? []) as Product[],
     categories: (categories.data ?? []) as ProductCategory[],
-    reviews: (reviews.data ?? []) as Review[],
+    reviews: await withReviewAuthors(supabase, (reviews.data ?? []) as Review[]),
   };
 });
+
+/** Adjunta nombre corto y foto de quien reseñó (profiles no es público). */
+export async function withReviewAuthors(supabase: Awaited<ReturnType<typeof createClient>>, reviews: Review[]) {
+  if (reviews.length === 0) return reviews;
+  const { data } = await supabase.rpc("review_authors", { p_ids: [...new Set(reviews.map((r) => r.customer_id))] });
+  const authors = new Map(((data ?? []) as { id: string; name: string; avatar_url: string | null }[]).map((a) => [a.id, a]));
+  return reviews.map((r) => ({ ...r, author: authors.get(r.customer_id) ?? null }));
+}
 
 export const getProduct = cache(async (id: string) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
@@ -106,7 +148,7 @@ export const getProduct = cache(async (id: string) => {
     .eq("id", id)
     .gte("business.business_closures.date", todayIso())
     .maybeSingle();
-  if (!data || !data.business || data.business.status !== "approved" || !data.is_active) {
+  if (!data || !data.business || data.business.status !== "approved" || !data.is_active || data.review_status !== "approved") {
     return null;
   }
   return data as ProductWithBusiness & { category: { name: string } | null };
@@ -125,6 +167,7 @@ export async function searchProducts(options: {
     .from("products")
     .select(`*, business:businesses!inner(${BUSINESS_META})`, { count: "exact" })
     .eq("is_active", true)
+    .eq("review_status", "approved")
     .eq("business.status", "approved")
     .gte("business.business_closures.date", todayIso());
   if (options.q) {

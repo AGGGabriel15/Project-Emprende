@@ -15,7 +15,9 @@
     "test:e2e": "playwright test",
     "db:migrate": "tsx --env-file=.env.local scripts/db.ts migrate",
     "db:seed": "tsx --env-file=.env.local scripts/db.ts seed",
-    "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts"
+    "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
+    "test:db": "tsx --env-file=.env.local scripts/test-seller-tiers.mts && tsx --env-file=.env.local scripts/test-order-flow.mts && tsx --env-file=.env.local scripts/test-couriers.mts",
+    "stripe:listen": "stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired --forward-to localhost:3000/api/webhooks/stripe"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -14,15 +14,15 @@ export default async function VendorOrdersPage() {
   const [{ data: active }, { data: recent }] = await Promise.all([
     supabase
       .from("orders")
-      .select("*, items:order_items(*)")
+      .select("*, items:order_items(*), shipment:shipments(status, courier_name)")
       .eq("business_id", business.id)
-      .in("status", ["preparing", "ready_for_pickup", "on_the_way"])
+      .in("status", ["preparing", "ready", "ready_for_pickup", "on_the_way"])
       .order("paid_at", { ascending: true }),
     supabase
       .from("orders")
-      .select("*, items:order_items(*)")
+      .select("*, items:order_items(*), shipment:shipments(status, courier_name)")
       .eq("business_id", business.id)
-      .in("status", ["completed", "cancelled", "refunded"])
+      .in("status", ["delivered", "disputed", "completed", "cancelled", "refunded", "returned"])
       .not("paid_at", "is", null)
       .gte("updated_at", since)
       .order("updated_at", { ascending: false })
@@ -33,7 +33,7 @@ export default async function VendorOrdersPage() {
     <>
       <PageHeader
         title="Pedidos"
-        description="Los pedidos pagados entran directo a En preparación. Esta vista se actualiza sola."
+        description="Empaca, toma la foto y marca listo: Catarina Market lo recoge y lo entrega. El pago se libera 48 h después de la entrega."
       />
       <OrdersBoard
         businessId={business.id}

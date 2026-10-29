@@ -16,7 +16,7 @@ const supabase = createClient(url, serviceKey, { auth: { persistSession: false }
 // Masaya = 11; Catarina = 84, Masaya (municipio) = 87; Managua = 10; Granada = 6.
 const CATARINA = { department_id: 11, municipality_id: 84 };
 
-async function ensureUser(email: string, fullName: string, role: "customer" | "vendor" | "admin", phone: string) {
+async function ensureUser(email: string, fullName: string, role: "customer" | "vendor" | "admin" | "courier", phone: string) {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   let user = list?.users.find((u) => u.email === email);
   if (!user) {
@@ -36,6 +36,12 @@ async function ensureUser(email: string, fullName: string, role: "customer" | "v
   if (error) throw error;
   return user.id;
 }
+
+// Repartidores (empleados): correo, nombre, teléfono y placa.
+const COURIERS = [
+  ["repartidor@catarina.local", "Luis Repartidor", "88883001", "M 123-456"],
+  ["repartidor2@catarina.local", "Karla Repartidora", "88883002", "M 654-321"],
+] as const;
 
 type DemoBusiness = {
   owner: { email: string; name: string; phone: string };
@@ -145,6 +151,11 @@ async function main() {
 
   await ensureUser("admin@catarina.local", "Administración Catarina", "admin", "88880000");
   await ensureUser("cliente@catarina.local", "Carlos Cliente", "customer", "88881000");
+  for (const [email, name, phone, plate] of COURIERS) {
+    const id = await ensureUser(email, name, "courier", phone);
+    const { error } = await supabase.from("couriers").upsert({ profile_id: id, vehicle: "moto", plate }, { onConflict: "profile_id" });
+    if (error) throw error;
+  }
 
   for (const demo of BUSINESSES) {
     const ownerId = await ensureUser(demo.owner.email, demo.owner.name, "vendor", demo.owner.phone);
@@ -242,6 +253,7 @@ async function main() {
   }
   console.log(`\nCuentas demo (contraseña: ${password}):`);
   console.log("  admin@catarina.local · cliente@catarina.local · maria@ / jose@ / ana@catarina.local");
+  console.log("  repartidor@catarina.local · repartidor2@catarina.local");
 }
 
 main().catch((error) => {

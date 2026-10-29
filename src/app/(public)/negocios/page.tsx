@@ -4,7 +4,8 @@ import { BusinessCard } from "@/components/catalog/business-card";
 import { CategoryChips } from "@/components/catalog/category-chips";
 import { SearchFilters } from "@/components/catalog/search-filters";
 import { EmptyState, PageHeader } from "@/components/ui/card";
-import { listBusinesses, listCategories } from "@/features/catalog/queries";
+import { deliveryFor } from "@/features/catalog/meta";
+import { getPlatformZones, listBusinesses, listCategories } from "@/features/catalog/queries";
 import { getVisitorLocation } from "@/features/location/server";
 
 export const metadata: Metadata = { title: "Negocios" };
@@ -13,7 +14,8 @@ type SearchParams = Promise<Record<string, string | undefined>>;
 
 export default async function BusinessesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const [categories, location] = await Promise.all([listCategories(), getVisitorLocation()]);
+  const [categories, location, zones] = await Promise.all([listCategories(), getVisitorLocation(), getPlatformZones()]);
+  const delivery = deliveryFor(zones, location);
   const category = categories.find((c) => c.slug === params.categoria);
   const businesses = await listBusinesses({
     categoryId: category?.id,
@@ -21,13 +23,6 @@ export default async function BusinessesPage({ searchParams }: { searchParams: S
     openNow: params.abierto === "1",
     location,
   });
-  // Primero los que envían a la ubicación del visitante.
-  const sorted = location
-    ? [...businesses].sort(
-        (a, b) =>
-          Number(hasZone(b, location.departmentId)) - Number(hasZone(a, location.departmentId)),
-      )
-    : businesses;
 
   return (
     <div className="container-page py-8">
@@ -45,10 +40,10 @@ export default async function BusinessesPage({ searchParams }: { searchParams: S
         />
       </div>
       <div className="mt-6">
-        {sorted.length ? (
+        {businesses.length ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {sorted.map((business) => (
-              <BusinessCard key={business.id} business={business} location={location} />
+            {businesses.map((business) => (
+              <BusinessCard key={business.id} business={business} location={location} delivery={delivery} />
             ))}
           </div>
         ) : (
@@ -63,6 +58,3 @@ export default async function BusinessesPage({ searchParams }: { searchParams: S
   );
 }
 
-function hasZone(business: { delivery_zones: { department_id: number }[] }, departmentId: number) {
-  return business.delivery_zones.some((zone) => zone.department_id === departmentId);
-}

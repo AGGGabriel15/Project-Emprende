@@ -1,6 +1,8 @@
 import { PanelShell, type PanelNavItem } from "@/components/layout/panel-shell";
 import { toShellUser } from "@/components/layout/site-shell";
 import { getMyBusiness, requireProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { ROLE_HOME } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
 const FULL_NAV: PanelNavItem[] = [
@@ -17,6 +19,7 @@ const FULL_NAV: PanelNavItem[] = [
 
 export default async function VendorLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireProfile(undefined, "/vendedor/panel");
+  if (profile.role === "courier" || profile.role === "admin") redirect(ROLE_HOME[profile.role]);
   const business = await getMyBusiness();
   const active = business && ["approved", "suspended"].includes(business.status);
 
@@ -32,7 +35,12 @@ export default async function VendorLayout({ children }: { children: React.React
   }
 
   const nav = active
-    ? FULL_NAV.map((item) => (item.href === "/vendedor/pedidos" ? { ...item, badge: preparing } : item))
+    ? [
+        ...FULL_NAV.map((item) => (item.href === "/vendedor/pedidos" ? { ...item, badge: preparing } : item)),
+        ...(business.tier === "informal"
+          ? [{ href: "/vendedor/formalizar", label: "Pasar a formal", icon: "shield" as const }]
+          : []),
+      ]
     : [{ href: "/vendedor/solicitud", label: "Solicitud del negocio", icon: "application" as const }];
 
   return (

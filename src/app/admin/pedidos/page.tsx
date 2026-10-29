@@ -4,7 +4,7 @@ import { PromptActionButton } from "@/components/admin/action-buttons";
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { Card, PageHeader } from "@/components/ui/card";
 import { cancelOrder } from "@/features/orders/actions";
-import { CANCELLABLE, ORDER_STATUS_LABEL, SERVICE_LABEL } from "@/features/orders/status";
+import { ORDER_STATUS_LABEL, SERVICE_LABEL, VENDOR_CANCELLABLE } from "@/features/orders/status";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import type { OrderStatus } from "@/types/domain";
@@ -78,12 +78,12 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                     <td className="px-5 py-3 text-right tabular-nums">{formatMoney(order.total_minor)}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{formatMoney(order.commission_amount_minor)}</td>
                     <td className="px-5 py-3 text-right">
-                      {CANCELLABLE.includes(status) && (
+                      {[...VENDOR_CANCELLABLE, "on_the_way"].includes(status) && (
                         <PromptActionButton
                           size="sm"
                           variant="danger"
                           title={`Cancelar ${order.order_number}`}
-                          description="Se repone el stock y se reembolsa al cliente."
+                          description="Se repone el stock y se reembolsa todo al cliente (a cargo de la plataforma, sin falta al negocio)."
                           label="Motivo (disputa, fraude, etc.)"
                           confirmLabel="Cancelar y reembolsar"
                           success="Pedido cancelado."

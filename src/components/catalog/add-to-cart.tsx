@@ -46,7 +46,7 @@ export function AddToCartButton({
     return compact ? null : (
       <p className="flex items-start gap-2.5 rounded-2xl bg-muted p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-        Las cuentas de {role === "admin" ? "administración" : "vendedor"} no pueden comprar. Usa una cuenta
+        Las cuentas de {role === "admin" ? "administración" : role === "courier" ? "repartidor" : "vendedor"} no pueden comprar. Usa una cuenta
         de cliente para hacer pedidos.
       </p>
     );

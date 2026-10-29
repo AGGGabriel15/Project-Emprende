@@ -47,9 +47,9 @@ export function SiteHeader({ user }: { user: ShellUser | null }) {
             );
           })}
         </nav>
-        <Suspense fallback={<div className="hidden flex-1 md:block" />}>
+        {/* <Suspense fallback={<div className="hidden flex-1 md:block" />}>
           <HeaderSearch />
-        </Suspense>
+        </Suspense> */}
         <div className="ml-auto hidden md:block">
           <LocationPicker isLoggedIn={Boolean(user)} profileLocation={user?.location ?? null} />
         </div>
