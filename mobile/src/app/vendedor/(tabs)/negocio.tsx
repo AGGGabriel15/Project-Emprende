@@ -15,7 +15,7 @@ import { Text } from '~/components/ui/text';
 import { useNotifications } from '~/features/account/notifications';
 import { useSession } from '~/features/auth/session';
 import { useBusinessHours, useMyBusiness } from '~/features/vendor/queries';
-import { colors, radius } from '~/theme/tokens';
+import { colors } from '~/theme/tokens';
 
 export default function MyBusiness() {
   const router = useRouter();
@@ -36,8 +36,10 @@ export default function MyBusiness() {
         </View>
         <View style={styles.headBody}>
           <View style={styles.logo}>{business.logo_url ? <Image source={business.logo_url} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}</View>
-          <View style={styles.flex}>
-            <Text variant="heading">{business.trade_name}</Text>
+          <View style={styles.headText}>
+            <Text variant="heading" numberOfLines={2}>
+              {business.trade_name}
+            </Text>
             <View style={styles.inline}>
               <Badge tone={business.tier === 'informal' ? 'violet' : 'brand'} icon={BadgeCheck}>
                 {TIER_INFO[business.tier].label}
@@ -76,12 +78,12 @@ export default function MyBusiness() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, gap: 4 },
   inline: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   head: { overflow: 'hidden' },
   cover: { height: 96, backgroundColor: colors.niebla, overflow: 'hidden' },
-  headBody: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginTop: -30, alignItems: 'flex-end' },
-  logo: { width: 72, height: 72, borderRadius: 18, borderWidth: 3, borderColor: colors.card, backgroundColor: colors.niebla, overflow: 'hidden' },
+  headBody: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, alignItems: 'flex-start' },
+  headText: { flex: 1, gap: 4, paddingTop: 10 },
+  // Solo el logo se monta sobre la portada; el nombre va debajo de ella.
+  logo: { width: 72, height: 72, marginTop: -36, borderRadius: 18, borderWidth: 3, borderColor: colors.card, backgroundColor: colors.niebla, overflow: 'hidden' },
   view: { alignSelf: 'flex-start', margin: 16, marginTop: 12 },
-  radius: { borderRadius: radius.md },
 });

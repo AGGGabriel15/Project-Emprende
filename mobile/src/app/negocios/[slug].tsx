@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, BadgeCheck, Bike, MapPin, MessageCircle, Phone, ShoppingBag, Store } from 'lucide-react-native';
 import { useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -18,6 +18,7 @@ import { IconButton } from '~/components/ui/button';
 import { Card, Divider } from '~/components/ui/card';
 import { EmptyState, Skeleton } from '~/components/ui/feedback';
 import { Text } from '~/components/ui/text';
+import { useSession } from '~/features/auth/session';
 import { useBusiness } from '~/features/catalog/queries';
 import { useMunicipalities } from '~/features/location/geo';
 import { useDelivery } from '~/features/location/use-delivery';
@@ -28,6 +29,7 @@ export default function BusinessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const query = useBusiness(slug);
+  const { profile } = useSession();
   const { location, delivery } = useDelivery();
   const [section, setSection] = useState<string | null>(null);
   const towns = useMunicipalities(query.data?.business.department_id);
@@ -53,6 +55,10 @@ export default function BusinessScreen() {
   }
 
   const { business, products, categories, reviews, stats } = query.data;
+  // Un vendedor solo ve su propio negocio (como lo ven sus clientes).
+  if (profile && profile.role !== 'customer' && business.owner_id !== profile.id) {
+    return <Redirect href={profile.role === 'courier' ? '/repartidor' : '/vendedor/panel'} />;
+  }
   const state = businessOpenState(business);
   const today = localNow().dow;
   const sections = categories.filter((c) => products.some((p) => p.category_id === c.id));

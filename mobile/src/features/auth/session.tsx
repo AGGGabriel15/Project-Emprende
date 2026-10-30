@@ -38,7 +38,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
       // El refresco del token no cambia el perfil: evita una consulta por hora.
       if (event === 'TOKEN_REFRESHED') setSession(next);
-      else if (event !== 'INITIAL_SESSION') apply(next);
+      // Nada de consultas dentro del callback: supabase-js lo ejecuta con el
+      // candado de la sesión tomado y una consulta ahí lo bloquea (la app se
+      // quedaba cargando hasta reiniciarla). Se agenda para después.
+      else if (event !== 'INITIAL_SESSION') setTimeout(() => void apply(next), 0);
     });
     return () => {
       active = false;

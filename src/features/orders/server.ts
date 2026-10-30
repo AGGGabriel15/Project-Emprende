@@ -91,8 +91,19 @@ type PendingRefund = {
   order_id: string;
   amount_minor: number;
   reason: string;
-  payment: { provider: string; provider_ref: string | null } | null;
+  payment: { provider: string; provider_ref: string | null; amount_minor: number } | null;
 };
+
+/** Mensajes de la pasarela en español (Stripe responde en inglés). */
+export function refundErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/greater than (the )?(charge|unrefunded) amount/i.test(message)) return "El monto a devolver supera lo que se cobró en la tarjeta.";
+  if (/already been refunded|charge_already_refunded/i.test(message)) return "Ese cobro ya fue reembolsado por completo.";
+  if (/No such payment_intent|resource_missing/i.test(message)) return "La pasarela no encuentra el pago: reembolsa manualmente desde Stripe.";
+  if (/disputed|charge_disputed/i.test(message)) return "El cobro está en disputa con el banco: no se puede reembolsar ahora.";
+  if (/[áéíóúñ¿¡]|^(El|La|Ese|No) /i.test(message)) return message;
+  return "La pasarela de pago rechazó el reembolso. Intenta de nuevo o revisa el pago en Stripe.";
+}
 
 /**
  * Ejecuta en la pasarela los reembolsos en cola (los crea la base: cancelaciones,
@@ -102,7 +113,7 @@ export async function processPendingRefunds(orderId?: string) {
   const admin = createAdminClient();
   let query = admin
     .from("refunds")
-    .select("id, order_id, amount_minor, reason, payment:payments(provider, provider_ref)")
+    .select("id, order_id, amount_minor, reason, payment:payments(provider, provider_ref, amount_minor)")
     .in("status", ["pending", "failed"])
     .order("created_at")
     .limit(50);
@@ -114,6 +125,17 @@ export async function processPendingRefunds(orderId?: string) {
 
   for (const refund of (data ?? []) as unknown as PendingRefund[]) {
     try {
+      // Nunca se devuelve más de lo que realmente se cobró (menos lo ya devuelto).
+      if (refund.payment) {
+        const { data: done } = await admin.from("refunds").select("amount_minor").eq("order_id", refund.order_id).eq("status", "processed");
+        const refunded = (done ?? []).reduce((sum, r) => sum + (r.amount_minor as number), 0);
+        const available = Math.max(0, refund.payment.amount_minor - refunded);
+        if (available === 0) throw new Error("Ese cobro ya fue reembolsado por completo.");
+        if (refund.amount_minor > available) {
+          await admin.from("refunds").update({ amount_minor: available }).eq("id", refund.id);
+          refund.amount_minor = available;
+        }
+      }
       let reference: string;
       if (refund.payment?.provider === provider.name && provider.name === "stripe") {
         if (!refund.payment.provider_ref) throw new Error("El pago no tiene referencia en Stripe: reembolsa manualmente.");
@@ -139,7 +161,7 @@ export async function processPendingRefunds(orderId?: string) {
       await admin.rpc("complete_refund", {
         p_refund: refund.id,
         p_provider_ref: null,
-        p_error: error instanceof Error ? error.message : "Error al reembolsar",
+        p_error: refundErrorMessage(error),
       });
     }
   }

@@ -1,6 +1,6 @@
 import { X } from 'lucide-react-native';
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius } from '~/theme/tokens';
 import { IconButton } from './button';
@@ -30,15 +30,12 @@ export function Sheet({
     <Modal visible={open} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       {open && (
         <View style={styles.root}>
-          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)} style={StyleSheet.absoluteFill}>
+          <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(100)} style={StyleSheet.absoluteFill}>
             <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Cerrar" />
           </Animated.View>
           <KeyboardAvoidingView behavior="padding" style={styles.avoider} pointerEvents="box-none">
-            <Animated.View
-              entering={SlideInDown.springify().damping(18).stiffness(180)}
-              exiting={SlideOutDown.duration(180)}
-              style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}
-            >
+            {/* Sin animación de deslizamiento: el panel aparece ya en su lugar (antes rebotaba y se cortaba). */}
+            <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               <View style={styles.handle} />
               <View style={styles.header}>
                 <View style={styles.headerText}>
@@ -57,7 +54,7 @@ export function Sheet({
                 {children}
               </ScrollView>
               {footer && <View style={styles.footer}>{footer}</View>}
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       )}

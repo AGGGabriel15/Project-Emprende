@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { businessOpenState, deliveryFor } from "@/features/catalog/meta";
 import { getPlatformZones, getProduct } from "@/features/catalog/queries";
 import { getVisitorLocation } from "@/features/location/server";
+import { requireBusinessViewer } from "@/lib/auth";
 import { formatMoney } from "@/lib/utils";
 
 type Params = Promise<{ id: string }>;
@@ -27,6 +28,7 @@ export default async function ProductPage({ params }: { params: Params }) {
   const [product, location, zones] = await Promise.all([getProduct(id), getVisitorLocation(), getPlatformZones()]);
   if (!product) notFound();
   const { business } = product;
+  await requireBusinessViewer(business.owner_id);
   const state = businessOpenState(business);
   const delivery = deliveryFor(zones, location);
   const soldOut = product.stock <= 0;

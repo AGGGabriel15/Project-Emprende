@@ -5,6 +5,9 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { isActiveBusiness, useMyBusiness, useVendorBoard } from '~/features/vendor/queries';
 import { colors, fonts } from '~/theme/tokens';
 
+/** Contador de la pestaña: fuente del sistema y alto de línea fijo para que el número quede centrado. */
+const BADGE = { backgroundColor: colors.brote, fontSize: 11, lineHeight: 18, minWidth: 18, height: 18, includeFontPadding: false, textAlignVertical: 'center' } as const;
+
 /** Panel del negocio aprobado (o suspendido, solo lectura). Sin negocio activo, a la solicitud. */
 export default function VendorTabs() {
   const business = useMyBusiness();
@@ -36,7 +39,7 @@ export default function VendorTabs() {
         options={{
           title: 'Pedidos',
           tabBarBadge: preparing || undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.brote, fontFamily: fonts.sansBold },
+          tabBarBadgeStyle: BADGE,
           tabBarIcon: ({ color, size }) => <ClipboardList color={color} size={size} />,
         }}
       />

@@ -9,6 +9,8 @@ export type CheckoutRequest = {
   businessName: string;
   items: { name: string; unitPriceMinor: number; quantity: number }[];
   deliveryFeeMinor: number;
+  /** Tarifa de servicio de la plataforma (parte del total del pedido). */
+  serviceFeeMinor: number;
   customerEmail?: string;
   successUrl: string;
   cancelUrl: string;

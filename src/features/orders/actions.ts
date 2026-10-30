@@ -54,15 +54,17 @@ export async function completeWithPin(orderId: string, pin: string) {
 export async function cancelOrder(input: unknown) {
   const result = await cancelOrderWith(await createClient(), input);
   if (!result.ok) return result;
+  // La cancelación ya quedó hecha: si la pasarela falla, el reembolso queda en
+  // cola (se reintenta) y se avisa como advertencia, no como error.
+  let warning: string | undefined;
   if (result.data.queued) {
     const refunds = await processPendingRefunds(result.data.orderId);
-    if (refunds.failed) {
-      return failure({ message: "El pedido se canceló, pero el reembolso quedó pendiente. La administración lo revisará." });
-    }
+    if (refunds.failed) warning = "El pedido se canceló, pero el reembolso quedó pendiente. Revísalo en Reclamos y reembolsos.";
   }
   revalidatePath("/vendedor/pedidos");
   revalidatePath("/admin/pedidos");
-  return success();
+  revalidatePath("/admin/reclamos");
+  return success({ warning });
 }
 
 /** El cliente reporta un problema dentro de las 48 h siguientes a la entrega. */

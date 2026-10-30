@@ -438,7 +438,8 @@ function CancelDialog({ order, onClose }: { order: BoardOrder | null; onClose: (
                 startTransition(async () => {
                   const result = await cancelOrder({ orderId: order.id, reason });
                   if (!result.ok) return void toast.error(result.error);
-                  toast.success("Pedido cancelado y reembolsado.");
+                  if (result.data?.warning) toast.warning(result.data.warning);
+                  else toast.success("Pedido cancelado y reembolsado.");
                   setReason("");
                   onClose();
                   router.refresh();

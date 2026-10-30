@@ -1,4 +1,5 @@
 import { Store } from "lucide-react";
+import { redirectPanelUsers } from "@/lib/auth";
 import type { Metadata } from "next";
 import { BusinessCard } from "@/components/catalog/business-card";
 import { CategoryChips } from "@/components/catalog/category-chips";
@@ -13,6 +14,7 @@ export const metadata: Metadata = { title: "Negocios" };
 type SearchParams = Promise<Record<string, string | undefined>>;
 
 export default async function BusinessesPage({ searchParams }: { searchParams: SearchParams }) {
+  await redirectPanelUsers();
   const params = await searchParams;
   const [categories, location, zones] = await Promise.all([listCategories(), getVisitorLocation(), getPlatformZones()]);
   const delivery = deliveryFor(zones, location);

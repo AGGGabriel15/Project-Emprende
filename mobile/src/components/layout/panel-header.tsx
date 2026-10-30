@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Bell } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Logo } from '~/components/brand/logo';
+import { CountBadge } from '~/components/ui/count-badge';
 import { Text } from '~/components/ui/text';
 import { useNotifications } from '~/features/account/notifications';
 import { colors } from '~/theme/tokens';
@@ -17,11 +18,7 @@ export function PanelHeader({ title, subtitle }: { title: string; subtitle?: str
         <Logo height={30} />
         <Pressable onPress={() => router.push('/notificaciones')} hitSlop={8} accessibilityLabel={`Notificaciones${unread ? `, ${unread} sin leer` : ''}`} style={styles.bell}>
           <Bell size={22} color={colors.foreground} />
-          {unread > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
-            </View>
-          )}
+          <CountBadge count={unread} size={18} style={styles.badge} />
         </Pressable>
       </View>
       <View>
@@ -40,17 +37,5 @@ const styles = StyleSheet.create({
   root: { gap: 14 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bell: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.brote,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: { color: colors.white, fontSize: 10, fontFamily: 'DMSans_700Bold' },
+  badge: { position: 'absolute', top: 2, right: 0 },
 });

@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getMyBusiness, getSession } from "@/lib/auth";
+import { getMyBusiness, getSession, redirectPanelUsers } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatPercent } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Vender en Catarina Market" };
 
 export default async function SellPage() {
+  await redirectPanelUsers();
   const [session, business] = await Promise.all([getSession(), getMyBusiness()]);
   const supabase = await createClient();
   const { data } = await supabase.from("platform_settings").select("value").eq("key", "commission_rate").maybeSingle();

@@ -27,7 +27,8 @@ export async function api<T>(path: string, body: Record<string, unknown> = {}): 
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify(body),
     });
-    return (await response.json()) as ActionResult<T>;
+    const result = (await response.json().catch(() => null)) as ActionResult<T> | null;
+    return result ?? { ok: false, error: 'El servicio no respondió. Intenta de nuevo en unos minutos.' };
   } catch {
     return { ok: false, error: 'Sin conexión. Revisa tu internet e intenta de nuevo.' };
   }

@@ -1,5 +1,7 @@
+import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
+import { use } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { colors } from '~/theme/tokens';
 
 /**
@@ -24,13 +26,18 @@ export function Screen({
   /** Barra fija abajo (p. ej. "Pagar"), siempre por encima del teclado. */
   footer?: React.ReactNode;
 }) {
+  // El pie y el final del scroll respetan la barra de navegación del sistema.
+  const insets = useSafeAreaInsets();
+  // Dentro de pestañas la barra de pestañas ya ocupa ese espacio.
+  const inTabs = use(BottomTabBarHeightContext) !== undefined;
+  const bottom = edges.includes('bottom') || inTabs ? 0 : insets.bottom;
   return (
     <SafeAreaView edges={edges} style={styles.root}>
       <KeyboardAvoidingView style={styles.root} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
         {scroll ? (
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[styles.content, contentStyle]}
+            contentContainerStyle={[styles.content, !footer && { paddingBottom: 40 + bottom }, contentStyle]}
             refreshControl={
               onRefresh ? (
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.catarina} colors={[colors.catarina]} />
@@ -42,7 +49,7 @@ export function Screen({
         ) : (
           <View style={[styles.root, contentStyle]}>{children}</View>
         )}
-        {footer && <View style={styles.footer}>{footer}</View>}
+        {footer && <View style={[styles.footer, { paddingBottom: 12 + Math.max(bottom, 4) }]}>{footer}</View>}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -57,6 +64,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 16,
   },
 });

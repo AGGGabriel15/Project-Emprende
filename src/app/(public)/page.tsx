@@ -1,4 +1,5 @@
 import { ArrowRight, Store } from "lucide-react";
+import { redirectPanelUsers } from "@/lib/auth";
 import Image from "next/image";
 import Link from "next/link";
 import { BusinessCard } from "@/components/catalog/business-card";
@@ -16,6 +17,7 @@ import { deliveryFor } from "@/features/catalog/meta";
 import { getVisitorLocation } from "@/features/location/server";
 
 export default async function HomePage() {
+  await redirectPanelUsers();
   const [categories, businesses, featured, location] = await Promise.all([
     listCategories(),
     listBusinesses({ limit: 12 }),

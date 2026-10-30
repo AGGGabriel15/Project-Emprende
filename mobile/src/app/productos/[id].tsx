@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Minus, PackageX, Plus, ShoppingBag } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -50,6 +50,10 @@ export default function ProductScreen() {
     );
   }
 
+  // Un vendedor solo ve sus propios productos.
+  if (profile && profile.role !== 'customer' && product.business.owner_id !== profile.id) {
+    return <Redirect href={profile.role === 'courier' ? '/repartidor' : '/vendedor/panel'} />;
+  }
   const state = businessOpenState(product.business);
   const soldOut = product.stock <= 0;
   const canShop = !profile || profile.role === 'customer';

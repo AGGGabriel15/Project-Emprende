@@ -1,4 +1,5 @@
 import { SearchX } from "lucide-react";
+import { redirectPanelUsers } from "@/lib/auth";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryChips } from "@/components/catalog/category-chips";
@@ -15,6 +16,7 @@ const PAGE_SIZE = 24;
 type SearchParams = Promise<Record<string, string | undefined>>;
 
 export default async function SearchPage({ searchParams }: { searchParams: SearchParams }) {
+  await redirectPanelUsers();
   const params = await searchParams;
   const page = Math.max(1, Number(params.pagina) || 1);
   const categories = await listCategories();

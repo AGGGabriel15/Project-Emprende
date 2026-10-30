@@ -13,7 +13,7 @@ import { DAY_NAMES, formatTime, localNow } from "@/features/businesses/hours";
 import { businessOpenState, deliveryFor } from "@/features/catalog/meta";
 import { getBusinessBySlug, getBusinessStats, getPlatformZones } from "@/features/catalog/queries";
 import { getGeo, getVisitorLocation, placeName } from "@/features/location/server";
-import { getSession } from "@/lib/auth";
+import { getSession, requireBusinessViewer } from "@/lib/auth";
 import { canShop } from "@/lib/roles";
 import { TIER_INFO } from "@/lib/validations/business";
 import { cn, formatDate, formatMoney, formatPercent } from "@/lib/utils";
@@ -38,6 +38,7 @@ export default async function BusinessPage({ params }: { params: Params }) {
     getPlatformZones(),
   ]);
   if (!data || data.business.status !== "approved") notFound();
+  await requireBusinessViewer(data.business.owner_id);
   const { business, products, categories, reviews } = data;
   const stats = await getBusinessStats(business.id);
   const state = businessOpenState(business);

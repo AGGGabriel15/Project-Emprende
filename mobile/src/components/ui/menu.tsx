@@ -1,6 +1,7 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { colors, fonts, radius } from '~/theme/tokens';
+import { colors } from '~/theme/tokens';
+import { CountBadge } from './count-badge';
 import { Text } from './text';
 
 /** Fila de menú con ícono, etiqueta, contador opcional y flecha. */
@@ -32,11 +33,7 @@ export function MenuItem({
           </Text>
         ) : null}
       </View>
-      {badge ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
-        </View>
-      ) : null}
+      <CountBadge count={badge ?? 0} size={22} />
       <ChevronRight size={18} color={colors.mutedForeground} />
     </Pressable>
   );
@@ -48,6 +45,4 @@ const styles = StyleSheet.create({
   border: { borderBottomWidth: 1, borderBottomColor: colors.muted },
   pressed: { backgroundColor: colors.muted },
   icon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.niebla, alignItems: 'center', justifyContent: 'center' },
-  badge: { minWidth: 22, height: 22, borderRadius: radius.full, backgroundColor: colors.brote, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  badgeText: { fontSize: 11, fontFamily: fonts.sansBold, color: colors.white },
 });

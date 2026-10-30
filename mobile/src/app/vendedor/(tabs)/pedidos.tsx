@@ -16,6 +16,7 @@ import { CancelSheet } from '~/components/orders/order-forms';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import { CountBadge } from '~/components/ui/count-badge';
 import { EmptyState, Skeleton } from '~/components/ui/feedback';
 import { Screen } from '~/components/ui/screen';
 import { Sheet } from '~/components/ui/sheet';
@@ -91,11 +92,7 @@ export default function VendorOrders() {
               <Text variant="smallMedium" tone={on ? 'white' : 'default'}>
                 {c.title}
               </Text>
-              {count > 0 && (
-                <View style={[styles.count, on && styles.countOn]}>
-                  <Text style={[styles.countText, on && styles.countTextOn]}>{count}</Text>
-                </View>
-              )}
+              <CountBadge count={count} tone={on ? 'white' : 'soft'} />
             </Pressable>
           );
         })}
@@ -359,10 +356,6 @@ const styles = StyleSheet.create({
   tabs: { gap: 8 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.full, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   tabOn: { backgroundColor: colors.catarina, borderColor: colors.catarina },
-  count: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.niebla, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
-  countOn: { backgroundColor: colors.white },
-  countText: { fontSize: 11, fontFamily: fonts.sansBold, color: colors.catarina },
-  countTextOn: { color: colors.catarina },
   card: { gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 6 },

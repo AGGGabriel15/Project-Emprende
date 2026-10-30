@@ -1,6 +1,6 @@
 "use client";
 
-import { UserPlus } from "lucide-react";
+import { KeyRound, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/form-controls";
 import { Switch } from "@/components/ui/switch";
-import { createAdminUser, updateUser } from "@/features/admin/actions";
+import { createAdminUser, setUserPassword, updateUser } from "@/features/admin/actions";
 import { formatDate } from "@/lib/utils";
 import type { Profile, Role } from "@/types/domain";
 
@@ -92,7 +92,60 @@ export function UserRow({ user, isSelf }: { user: Profile; isSelf: boolean }) {
           </div>
         </>
       )}
+      {user.role !== "admin" && <PasswordButton user={user} />}
     </li>
+  );
+}
+
+/** Contraseña nueva para un cliente, vendedor o repartidor (queda en la auditoría). */
+function PasswordButton({ user }: { user: Profile }) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [pending, startTransition] = useTransition();
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setPassword("");
+      }}
+    >
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <KeyRound /> Contraseña
+      </Button>
+      {open && (
+        <DialogContent
+          title="Cambiar contraseña"
+          description={`Para ${user.full_name || user.email}. Se le avisa por correo y queda registrado en la auditoría. Compártela por un canal seguro.`}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              startTransition(async () => {
+                const result = await setUserPassword({ userId: user.id, password });
+                if (!result.ok) return void toast.error(result.error);
+                toast.success("Contraseña actualizada.");
+                setPassword("");
+                setOpen(false);
+              });
+            }}
+          >
+            <Field label="Contraseña nueva" htmlFor={`pass-${user.id}`} hint="Mínimo 8 caracteres, con letras y números.">
+              <Input id={`pass-${user.id}`} type="text" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </Field>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setOpen(false)}>
+                Volver
+              </Button>
+              <Button type="submit" className="flex-1" loading={pending} disabled={password.length < 8}>
+                Guardar contraseña
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      )}
+    </Dialog>
   );
 }
 

@@ -24,7 +24,8 @@ const NAV = [
 export function SiteHeader({ user }: { user: ShellUser | null }) {
   const pathname = usePathname();
   const shopper = canShop(user?.role);
-  const nav = shopper ? NAV : NAV.filter((item) => item.href !== "/pedidos");
+  // Los paneles (vendedor, repartidor, admin) no navegan la tienda: solo su botón de panel.
+  const nav = shopper ? NAV : [];
   return (
     <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
       <div className="container-page flex h-16 items-center gap-3 md:gap-5">
@@ -51,7 +52,7 @@ export function SiteHeader({ user }: { user: ShellUser | null }) {
           <HeaderSearch />
         </Suspense> */}
         <div className="ml-auto hidden md:block">
-          <LocationPicker isLoggedIn={Boolean(user)} profileLocation={user?.location ?? null} />
+          {shopper && <LocationPicker isLoggedIn={Boolean(user)} profileLocation={user?.location ?? null} />}
         </div>
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           {shopper ? (
@@ -75,9 +76,11 @@ export function SiteHeader({ user }: { user: ShellUser | null }) {
           )}
         </div>
       </div>
-      <div className="container-page flex h-11 items-center border-t md:hidden">
-        <LocationPicker compact isLoggedIn={Boolean(user)} profileLocation={user?.location ?? null} />
-      </div>
+      {shopper && (
+        <div className="container-page flex h-11 items-center border-t md:hidden">
+          <LocationPicker compact isLoggedIn={Boolean(user)} profileLocation={user?.location ?? null} />
+        </div>
+      )}
     </header>
   );
 }

@@ -8,6 +8,7 @@ import { button, escape, sendEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils";
+import { passwordSchema } from "@/lib/validations/auth";
 import { phoneSchema } from "@/lib/validations/common";
 
 // Límites por nivel de vendedor (platform_settings); los montos van en centavos.
@@ -131,6 +132,43 @@ export async function createAdminUser(input: unknown) {
     p_details: { email: parsed.data.email },
   });
   revalidatePath("/admin/usuarios");
+  return success();
+}
+
+const passwordResetSchema = z.object({
+  userId: z.string().uuid(),
+  password: passwordSchema,
+});
+
+/**
+ * El admin fija una contraseña nueva a un cliente, vendedor o repartidor
+ * (nunca a otro administrador). Queda en la auditoría (sin la contraseña) y se
+ * avisa al usuario por correo.
+ */
+export async function setUserPassword(input: unknown) {
+  const parsed = passwordResetSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_admin");
+  if (!isAdmin) return failure({ message: "Solo administradores." });
+  const admin = createAdminClient();
+  const { data: target } = await admin.from("profiles").select("role, email, full_name").eq("id", parsed.data.userId).maybeSingle();
+  if (!target) return failure({ message: "Usuario no encontrado." });
+  if (target.role === "admin") return failure({ message: "No puedes cambiar la contraseña de un administrador." });
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.userId, { password: parsed.data.password });
+  if (error) return failure({ message: "No pudimos cambiar la contraseña." });
+  await supabase.rpc("admin_log", {
+    p_action: "user.password_reset",
+    p_entity: "profile",
+    p_entity_id: parsed.data.userId,
+    p_details: { email: target.email, role: target.role },
+  });
+  await sendEmail(
+    target.email,
+    "Tu contraseña de Catarina Market cambió",
+    `<p>Hola ${escape(target.full_name ?? "")}, la administración de Catarina Market te asignó una contraseña nueva.</p><p>Si no lo pediste, escríbenos de inmediato.</p>${button("/login", "Entrar")}`,
+  );
+  revalidatePath("/admin/auditoria");
   return success();
 }
 

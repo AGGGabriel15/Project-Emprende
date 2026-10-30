@@ -155,6 +155,7 @@ async function startCheckout(
       quantity: item.quantity,
     })),
     deliveryFeeMinor: order.delivery_fee_minor,
+    serviceFeeMinor: order.service_fee_minor,
     customerEmail: email,
     ...urls(order.id),
   });

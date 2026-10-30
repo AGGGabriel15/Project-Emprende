@@ -29,6 +29,17 @@ export const stripeProvider: PaymentProvider = {
         quantity: 1,
       });
     }
+    // El total cobrado debe ser igual a orders.total_minor (productos + envío + servicio).
+    if (request.serviceFeeMinor > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "nio",
+          unit_amount: request.serviceFeeMinor,
+          product_data: { name: "Tarifa de servicio" },
+        },
+        quantity: 1,
+      });
+    }
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,

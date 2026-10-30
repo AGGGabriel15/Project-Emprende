@@ -8,6 +8,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/form-controls";
 
 type Result = { ok: true; data?: unknown } | { ok: false; error: string };
+
+/** Éxito con advertencia (p. ej. cancelado, pero el reembolso quedó en cola). */
+function notifySuccess(result: { data?: unknown }, message: string) {
+  const warning = (result.data as { warning?: string } | undefined)?.warning;
+  if (warning) toast.warning(warning);
+  else toast.success(message);
+}
 type ButtonProps = React.ComponentProps<typeof Button>;
 
 /** Ejecuta una Server Action (ya enlazada con .bind) con confirmación opcional. */
@@ -33,7 +40,7 @@ export function ActionButton({
         startTransition(async () => {
           const result = await action();
           if (!result.ok) return void toast.error(result.error);
-          toast.success(success);
+          notifySuccess(result, success);
           router.refresh();
         });
       }}
@@ -98,7 +105,7 @@ export function PromptActionButton({
                 startTransition(async () => {
                   const result = await action(text.trim());
                   if (!result.ok) return void toast.error(result.error);
-                  toast.success(success);
+                  notifySuccess(result, success);
                   setOpen(false);
                   setText("");
                   router.refresh();

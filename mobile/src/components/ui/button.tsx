@@ -69,7 +69,8 @@ export function Button({
         }}
         style={[
           styles.base,
-          { height: s.height, paddingHorizontal: s.paddingHorizontal, backgroundColor: v.bg, borderColor: v.border },
+          // minHeight (no height): si el texto no cabe en una línea, el botón crece en vez de cortarlo.
+          { minHeight: s.height, paddingHorizontal: s.paddingHorizontal, backgroundColor: v.bg, borderColor: v.border },
           inactive && styles.disabled,
         ]}
       >
@@ -79,7 +80,7 @@ export function Button({
           <>
             {Icon && <Icon size={s.icon} color={v.fg} strokeWidth={2.2} />}
             {children != null && (
-              <Text numberOfLines={1} style={{ color: v.fg, fontFamily: fonts.displayMedium, fontSize: s.fontSize }}>
+              <Text numberOfLines={2} style={[styles.label, { color: v.fg, fontSize: s.fontSize }]}>
                 {children}
               </Text>
             )}
@@ -129,10 +130,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingVertical: 8,
     borderRadius: radius.full,
     borderWidth: 1,
   },
   block: { alignSelf: 'stretch' },
+  label: { fontFamily: fonts.displayMedium, textAlign: 'center', flexShrink: 1 },
   disabled: { opacity: 0.5 },
   icon: { borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
 });

@@ -15,8 +15,12 @@ export function MobileNav({ user }: { user: ShellUser | null }) {
   const count = useCart((state) => cartCount(state.items));
   const hydrated = useCartHydrated();
   const items: { href: string; label: string; icon: typeof Home; badge?: number }[] = [
-    { href: "/", label: "Inicio", icon: Home },
-    { href: "/buscar", label: "Buscar", icon: Search },
+    ...(canShop(user?.role)
+      ? [
+          { href: "/", label: "Inicio", icon: Home },
+          { href: "/buscar", label: "Buscar", icon: Search },
+        ]
+      : []),
     ...(canShop(user?.role)
       ? [
           { href: "/carrito", label: "Carrito", icon: ShoppingBag, badge: hydrated ? count : 0 },

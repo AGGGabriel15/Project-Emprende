@@ -137,7 +137,9 @@ function RoleGate() {
     }
     if (SHARED.has(area)) return;
     if (profile.role === 'courier' && !inCourier) router.replace('/repartidor');
-    else if (profile.role === 'vendor' && !inVendor) router.replace('/vendedor/panel');
+    // El vendedor puede ver su propia página y productos como los ven sus clientes
+    // (las pantallas comprueban que sean suyos).
+    else if (profile.role === 'vendor' && !inVendor && area !== 'negocios' && area !== 'productos') router.replace('/vendedor/panel');
     else if (profile.role === 'customer' && inCourier) router.replace('/');
   }, [ready, session, profile, area, inVendor, inCourier, router, pathname]);
 

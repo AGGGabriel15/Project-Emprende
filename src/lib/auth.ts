@@ -4,6 +4,29 @@ import { ROLE_HOME } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import type { Business, Profile, Role } from "@/types/domain";
 
+/**
+ * Vendedores, repartidores y administradores no navegan la tienda: van a su
+ * panel. Se llama en las páginas de compra (inicio, explorar, negocios, carrito…).
+ */
+export async function redirectPanelUsers() {
+  const session = await getSession();
+  const role = session?.profile.role;
+  if (role && role !== "customer") redirect(ROLE_HOME[role]);
+}
+
+/**
+ * Página de un negocio o de un producto: el cliente ve todas; el administrador
+ * también; el vendedor solo la suya (para verla como la ven sus clientes); el
+ * repartidor ninguna.
+ */
+export async function requireBusinessViewer(ownerId: string) {
+  const session = await getSession();
+  const role = session?.profile.role;
+  if (!role || role === "customer" || role === "admin") return;
+  if (role === "vendor" && session.user.id === ownerId) return;
+  redirect(ROLE_HOME[role]);
+}
+
 /** Usuario + perfil de la petición actual (memoizado por render). */
 export const getSession = cache(async () => {
   const supabase = await createClient();
