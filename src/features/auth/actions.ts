@@ -11,6 +11,7 @@ import {
   registerSchema,
   resetSchema,
 } from "@/lib/validations/auth";
+import { clientIp, signInWithGuard } from "./login-guard";
 
 function safeNext(next: unknown) {
   return typeof next === "string" && next.startsWith("/") && !next.startsWith("//")
@@ -27,7 +28,9 @@ export async function signIn(input: unknown, next?: string) {
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const attempt = await signInWithGuard(supabase, parsed.data, clientIp(await headers()));
+  if ("blocked" in attempt) return failure({ message: attempt.blocked });
+  const { error } = attempt.result;
   if (error) {
     return failure(
       error.code === "email_not_confirmed"
@@ -115,6 +118,24 @@ export async function updatePassword(input: unknown) {
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return failure(error, "No pudimos actualizar la contraseña.");
   return success();
+}
+
+/**
+ * Token de acceso corto (1 h) para el cliente de Supabase del navegador
+ * (Realtime y subidas). Las cookies de sesión son HttpOnly: el refresh token
+ * nunca llega al JavaScript de la página.
+ */
+export async function browserSession() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+  return { accessToken: session.access_token, userId: user.id, expiresAt: (session.expires_at ?? 0) * 1000 };
 }
 
 export async function signOut() {

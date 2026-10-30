@@ -6,12 +6,12 @@ import { Button } from '~/components/ui/button';
 import { Card, InfoRow } from '~/components/ui/card';
 import { Screen } from '~/components/ui/screen';
 import { Text } from '~/components/ui/text';
-import { useSession } from '~/features/auth/session';
+import { useSignOut } from '~/features/auth/navigation';
 import { useCourier } from '~/features/couriers/queries';
 
 export default function CourierProfile() {
   const router = useRouter();
-  const { signOut } = useSession();
+  const signOut = useSignOut();
   const courier = useCourier();
   const c = courier.data;
   return (

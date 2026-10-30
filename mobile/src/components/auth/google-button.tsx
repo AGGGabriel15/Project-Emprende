@@ -17,7 +17,8 @@ function GoogleG() {
   );
 }
 
-export function GoogleButton({ onSignedIn }: { onSignedIn: () => void }) {
+/** Al terminar, la pantalla que lo usa navega sola cuando la sesión tiene perfil. */
+export function GoogleButton() {
   const [pending, setPending] = useState(false);
   return (
     <Pressable
@@ -27,8 +28,7 @@ export function GoogleButton({ onSignedIn }: { onSignedIn: () => void }) {
         setPending(true);
         const result = await signInWithGoogle();
         setPending(false);
-        if (result.ok) onSignedIn();
-        else if (result.error) toast.error(result.error);
+        if (!result.ok && result.error) toast.error(result.error);
       }}
       style={({ pressed }) => [styles.google, pressed && styles.pressed]}
     >

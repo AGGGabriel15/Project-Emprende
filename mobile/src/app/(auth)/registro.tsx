@@ -12,7 +12,8 @@ import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
 import { toast } from '~/components/ui/toast';
 import { WEB_URL } from '~/lib/api';
-import { fieldErrors, safeNext } from '~/lib/forms';
+import { useGoToHomeWhenSignedIn } from '~/features/auth/navigation';
+import { fieldErrors } from '~/lib/forms';
 import { supabase } from '~/lib/supabase';
 import { colors, radius } from '~/theme/tokens';
 
@@ -24,6 +25,7 @@ export default function RegisterScreen() {
   const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const set = (patch: Partial<typeof form>) => setForm((current) => ({ ...current, ...patch }));
+  useGoToHomeWhenSignedIn(next);
 
   async function submit() {
     const parsed = registerSchema.safeParse(form);
@@ -41,8 +43,8 @@ export default function RegisterScreen() {
     });
     setPending(false);
     if (error) return toast.error(error.code === 'user_already_exists' ? 'Ya existe una cuenta con ese correo.' : 'No pudimos crear tu cuenta.');
-    if (data.session) router.replace(safeNext(next));
-    else setSentTo(parsed.data.email);
+    // Con sesión inmediata, useGoToHomeWhenSignedIn lleva a completar el perfil.
+    if (!data.session) setSentTo(parsed.data.email);
   }
 
   if (sentTo) {
@@ -77,7 +79,7 @@ export default function RegisterScreen() {
         </Text>
       }
     >
-      <GoogleButton onSignedIn={() => router.replace(safeNext(next))} />
+      <GoogleButton />
       <OrDivider />
       <View style={styles.form}>
         <Input label="Nombre completo" value={form.fullName} onChangeText={(fullName) => set({ fullName })} autoComplete="name" error={errors.fullName} />

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getBrowserSession } from "@/lib/supabase/client";
 import { Avatar } from "@/components/layout/account-menu";
 import { Button } from "@/components/ui/button";
 import { updateAvatar } from "@/features/account/actions";
@@ -18,12 +18,10 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 /** Sube a <bucket>/<user_id>/<carpeta>/<uuid>.ext (las políticas exigen la carpeta del usuario). */
 async function upload(bucket: Bucket, folder: string, file: File) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getBrowserSession();
   if (!user) throw new Error("Inicia sesión para subir archivos.");
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
-  const path = `${user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
+  const path = `${user.userId}/${folder}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     cacheControl: "31536000",
     contentType: file.type,

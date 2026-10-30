@@ -15,7 +15,7 @@ import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { cancelOrder, completeWithPin, markOrderReady } from "@/features/orders/actions";
 import { vendorAction } from "@/features/orders/status";
 import { downscaleImage } from "@/lib/image";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getBrowserSession } from "@/lib/supabase/client";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import type { OrderStatus } from "@/types/domain";
 import type { BoardOrder } from "@/features/orders/queries";
@@ -321,12 +321,10 @@ function ReadyDialog({ order, onClose }: { order: BoardOrder | null; onClose: ()
                 startTransition(async () => {
                   try {
                     const supabase = createClient();
-                    const {
-                      data: { user },
-                    } = await supabase.auth.getUser();
+                    const user = await getBrowserSession();
                     if (!user || !file) throw new Error("Inicia sesión de nuevo.");
                     const photo = await downscaleImage(file);
-                    const path = `${user.id}/ready/${crypto.randomUUID()}.${photo.type === "image/webp" ? "webp" : "png"}`;
+                    const path = `${user.userId}/ready/${crypto.randomUUID()}.${photo.type === "image/webp" ? "webp" : "png"}`;
                     const { error } = await supabase.storage.from("delivery-evidence").upload(path, photo, { contentType: photo.type });
                     if (error) throw error;
                     const result = await markOrderReady(order.id, path);

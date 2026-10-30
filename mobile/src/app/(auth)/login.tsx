@@ -9,9 +9,10 @@ import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
 import { toast } from '~/components/ui/toast';
-import { WEB_URL } from '~/lib/api';
+import { signInWithPassword, WEB_URL } from '~/lib/api';
 import { supabase } from '~/lib/supabase';
-import { fieldErrors, safeNext } from '~/lib/forms';
+import { useGoToHomeWhenSignedIn } from '~/features/auth/navigation';
+import { fieldErrors } from '~/lib/forms';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -21,26 +22,26 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
 
-  const done = () => router.replace(safeNext(next));
+  // Al entrar, va directo a la pantalla de su rol (ver useGoToHomeWhenSignedIn).
+  useGoToHomeWhenSignedIn(next);
 
   async function submit() {
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) return setErrors(fieldErrors(parsed.error));
     setErrors({});
     setPending(true);
-    const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-    if (error) {
+    const result = await signInWithPassword(parsed.data);
+    if (!result.ok) {
       setPending(false);
-      return toast.error(error.code === 'email_not_confirmed' ? 'Confirma tu correo antes de entrar.' : 'Correo o contraseña incorrectos.');
+      return toast.error(result.error);
     }
-    const { data: profile } = await supabase.from('profiles').select('is_active').eq('id', data.user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('is_active').eq('id', result.data.userId).single();
     if (profile && !profile.is_active) {
       await supabase.auth.signOut();
       setPending(false);
       return toast.error('Tu cuenta está desactivada. Contacta a soporte.');
     }
-    setPending(false);
-    done();
+    // Sigue "cargando" hasta que la sesión tenga perfil y navegue.
   }
 
   return (
@@ -65,7 +66,7 @@ export default function LoginScreen() {
         </>
       }
     >
-      <GoogleButton onSignedIn={done} />
+      <GoogleButton />
       <OrDivider />
       <View style={styles.form}>
         <Input

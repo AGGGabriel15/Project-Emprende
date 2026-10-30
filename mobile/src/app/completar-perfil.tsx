@@ -10,6 +10,7 @@ import { Input } from '~/components/ui/input';
 import { PhoneInput } from '~/components/ui/phone-input';
 import { Select } from '~/components/ui/select';
 import { toast } from '~/components/ui/toast';
+import { useSignOut } from '~/features/auth/navigation';
 import { useSession } from '~/features/auth/session';
 import { useDepartments, useMunicipalities, useVisitorLocation } from '~/features/location/geo';
 import { fieldErrors } from '~/lib/forms';
@@ -19,7 +20,8 @@ import { errorMessage } from '@/lib/format';
 /** Teléfono y ubicación (el repartidor solo necesita el teléfono), como /completar-perfil del web. */
 export default function CompleteProfileScreen() {
   const router = useRouter();
-  const { profile, refreshProfile, signOut } = useSession();
+  const { profile, refreshProfile } = useSession();
+  const signOut = useSignOut();
   const visitor = useVisitorLocation((s) => s.location);
   const setVisitor = useVisitorLocation((s) => s.setLocation);
   const courier = profile?.role === 'courier';
@@ -63,7 +65,8 @@ export default function CompleteProfileScreen() {
     }
     await refreshProfile();
     setPending(false);
-    router.replace('/');
+    // Perfil ya completo: directo a la pantalla de su rol.
+    router.replace(profile.role === 'courier' ? '/repartidor' : profile.role === 'vendor' ? '/vendedor/panel' : '/');
   }
 
   return (

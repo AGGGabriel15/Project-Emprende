@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form-controls";
 import { signIn } from "@/features/auth/actions";
 import { loginSchema } from "@/lib/validations/auth";
+import { forgetBrowserSession } from "@/lib/supabase/client";
 
 export function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
@@ -20,6 +21,7 @@ export function LoginForm({ next }: { next?: string }) {
   const { errors, isSubmitting } = form.formState;
 
   const submit = form.handleSubmit(async (values) => {
+    forgetBrowserSession();
     const result = await signIn(values, next);
     if (!result.ok) {
       toast.error(result.error);

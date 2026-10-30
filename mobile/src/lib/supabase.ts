@@ -1,4 +1,6 @@
 import 'expo-sqlite/localStorage/install';
+// Antes del cliente: WebCrypto para el PKCE del login con Google.
+import './crypto-polyfill';
 import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 

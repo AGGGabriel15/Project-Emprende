@@ -34,6 +34,28 @@ export async function api<T>(path: string, body: Record<string, unknown> = {}): 
   }
 }
 
+/**
+ * Inicio de sesión con contraseña a través del servidor, que limita los
+ * intentos fallidos. Devuelve la sesión ya guardada en el cliente.
+ */
+export async function signInWithPassword(credentials: { email: string; password: string }): Promise<ActionResult<{ userId: string }>> {
+  try {
+    const response = await fetch(`${API_URL}/api/mobile/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+    const result = (await response.json().catch(() => null)) as ActionResult<{ access_token: string; refresh_token: string }> | null;
+    if (!result) return { ok: false, error: 'El servicio no respondió. Intenta de nuevo en unos minutos.' };
+    if (!result.ok) return result;
+    const { data, error } = await supabase.auth.setSession(result.data);
+    if (error || !data.user) return { ok: false, error: 'No pudimos iniciar sesión. Intenta de nuevo.' };
+    return { ok: true, data: { userId: data.user.id } };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Revisa tu internet e intenta de nuevo.' };
+  }
+}
+
 /** Reembolsos en cola de un pedido (cancelación, rechazo, entrega fallida). El cron diario es el respaldo. */
 export function processRefunds(orderId: string) {
   return api<{ processed: number; failed: number }>(`orders/${orderId}/refunds`);

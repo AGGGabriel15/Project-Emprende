@@ -1,13 +1,36 @@
-import { createBrowserClient } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+import { browserSession } from "@/features/auth/actions";
+
+type BrowserSession = { accessToken: string; userId: string; expiresAt: number };
+
+let cached: BrowserSession | null = null;
+let loading: Promise<BrowserSession | null> | null = null;
+
+/**
+ * Sesión del navegador. Las cookies de Supabase son HttpOnly, así que el
+ * servidor entrega solo el access token (se renueva un minuto antes de vencer).
+ */
+export async function getBrowserSession() {
+  if (cached && cached.expiresAt - Date.now() > 60_000) return cached;
+  loading ??= browserSession()
+    .then((session) => (cached = session))
+    .finally(() => {
+      loading = null;
+    });
+  return loading;
+}
+
+/** Al entrar o salir: la próxima petición pide el token de la nueva sesión. */
+export function forgetBrowserSession() {
+  cached = null;
+}
 
 let client: SupabaseClient | undefined;
 
 export function createClient() {
-  client ??= createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  client ??= createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    accessToken: async () => (await getBrowserSession())?.accessToken ?? null,
+  });
   return client;
 }
 
@@ -17,9 +40,6 @@ export function createClient() {
  */
 export async function createRealtimeClient() {
   const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  await supabase.realtime.setAuth(session?.access_token ?? null);
+  await supabase.realtime.setAuth();
   return supabase;
 }

@@ -15,7 +15,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
   const supabase = await createClient();
   let query = supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200);
   if (q) {
-    const term = q.replace(/[%,()]/g, " ").trim();
+    const term = q.replace(/[%,()*\\]/g, " ").trim().slice(0, 60);
     query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
   }
   const { data } = await query;

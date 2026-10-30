@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Field, FieldError, Input } from "@/components/ui/form-controls";
 import { signUp } from "@/features/auth/actions";
 import { registerSchema } from "@/lib/validations/auth";
+import { forgetBrowserSession } from "@/lib/supabase/client";
 
 type Values = z.input<typeof registerSchema>;
 
@@ -25,6 +26,7 @@ export function RegisterForm({ next }: { next?: string }) {
   const { errors, isSubmitting } = form.formState;
 
   const submit = form.handleSubmit(async (values) => {
+    forgetBrowserSession();
     const result = await signUp(values, next);
     if (!result.ok) {
       toast.error(result.error);

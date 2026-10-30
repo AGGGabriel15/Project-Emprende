@@ -10,7 +10,7 @@ import { Field, Select, Textarea } from "@/components/ui/form-controls";
 import { openClaim } from "@/features/orders/actions";
 import { CLAIM_REASONS } from "@/features/orders/status";
 import { downscaleImage } from "@/lib/image";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getBrowserSession } from "@/lib/supabase/client";
 import type { ClaimReason } from "@/types/domain";
 
 /** Reclamo dentro de las 48 h: con fotos, la administración decide con la evidencia de cada paso. */
@@ -27,14 +27,12 @@ export function ClaimForm({ orderId, deadline }: { orderId: string; deadline: st
     startTransition(async () => {
       try {
         const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const user = await getBrowserSession();
         if (!user) throw new Error("Inicia sesión de nuevo.");
         const photos: string[] = [];
         for (const file of files) {
           const photo = await downscaleImage(file);
-          const path = `${user.id}/claims/${crypto.randomUUID()}.${photo.type === "image/webp" ? "webp" : "png"}`;
+          const path = `${user.userId}/claims/${crypto.randomUUID()}.${photo.type === "image/webp" ? "webp" : "png"}`;
           const { error } = await supabase.storage.from("delivery-evidence").upload(path, photo, { contentType: photo.type });
           if (error) throw error;
           photos.push(path);

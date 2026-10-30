@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/features/auth/actions";
 import { canShop, ROLE_HOME, ROLE_PROFILE } from "@/lib/roles";
+import { forgetBrowserSession } from "@/lib/supabase/client";
 import { cn, initials } from "@/lib/utils";
 import type { ShellUser } from "./site-shell";
 
@@ -108,7 +109,13 @@ export function AccountMenu({ user }: { user: ShellUser }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void signOut()} className="text-destructive">
+        <DropdownMenuItem
+          onSelect={() => {
+            forgetBrowserSession();
+            void signOut();
+          }}
+          className="text-destructive"
+        >
           <LogOut /> Cerrar sesión
         </DropdownMenuItem>
       </DropdownMenuContent>

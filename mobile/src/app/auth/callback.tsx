@@ -3,6 +3,8 @@ import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { exchangeFromUrl } from '~/features/auth/google';
+import { useGoToHomeWhenSignedIn } from '~/features/auth/navigation';
+import { supabase } from '~/lib/supabase';
 import { colors } from '~/theme/tokens';
 
 /**
@@ -13,9 +15,16 @@ import { colors } from '~/theme/tokens';
 export default function AuthCallback() {
   const router = useRouter();
   const url = Linking.useLinkingURL();
+  // Aquí la sesión puede existir ya al llegar (la canjeó el botón de Google).
+  useGoToHomeWhenSignedIn(undefined, { evenIfSignedIn: true });
+  // Si no se pudo canjear el código, de vuelta al login.
   useEffect(() => {
     if (!url) return;
-    exchangeFromUrl(url).finally(() => router.replace('/'));
+    exchangeFromUrl(url).then(async (result) => {
+      if (result.ok) return;
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) router.replace('/login');
+    });
   }, [url, router]);
   return (
     <View style={styles.root}>

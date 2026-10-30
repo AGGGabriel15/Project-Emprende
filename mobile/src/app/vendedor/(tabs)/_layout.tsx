@@ -14,7 +14,9 @@ export default function VendorTabs() {
   const board = useVendorBoard(isActiveBusiness(business.data) ? business.data!.id : undefined);
   const preparing = board.data?.active.filter((o) => o.status === 'preparing').length ?? 0;
 
-  if (business.isLoading) {
+  // isPending (no isLoading): sin sesión la consulta queda en espera y no debe
+  // tomarse como "sin negocio" (eso mandaba un instante a la solicitud).
+  if (business.isPending) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.catarina} size="large" />

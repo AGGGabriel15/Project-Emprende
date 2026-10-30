@@ -11,12 +11,14 @@ import { MenuItem } from '~/components/ui/menu';
 import { Screen } from '~/components/ui/screen';
 import { Text } from '~/components/ui/text';
 import { useNotifications } from '~/features/account/notifications';
+import { useSignOut } from '~/features/auth/navigation';
 import { useSession } from '~/features/auth/session';
 import { WEB_URL } from '~/lib/api';
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { session, profile, signOut } = useSession();
+  const { session, profile } = useSession();
+  const signOut = useSignOut();
   const notifications = useNotifications();
   const unread = notifications.data?.filter((n) => !n.read_at).length ?? 0;
 

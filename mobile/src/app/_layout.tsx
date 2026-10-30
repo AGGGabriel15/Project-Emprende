@@ -126,6 +126,9 @@ function RoleGate() {
       }
       return;
     }
+    // Login, registro y regreso de Google navegan solos al iniciar sesión
+    // (useGoToHomeWhenSignedIn): si el guardián también lo hiciera, se verían dos saltos.
+    if (area === '(auth)' || area === 'auth') return;
     if (profile.role === 'admin') {
       if (area !== 'solo-web') router.replace('/solo-web');
       return;

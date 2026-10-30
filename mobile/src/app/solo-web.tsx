@@ -4,12 +4,12 @@ import { StyleSheet, View } from 'react-native';
 import { AuthShell } from '~/components/auth/auth-shell';
 import { Button } from '~/components/ui/button';
 import { EmptyState } from '~/components/ui/feedback';
-import { useSession } from '~/features/auth/session';
+import { useSignOut } from '~/features/auth/navigation';
 import { WEB_URL } from '~/lib/api';
 
 /** La administración se hace solo desde el web. */
 export default function AdminOnlyWeb() {
-  const { signOut } = useSession();
+  const signOut = useSignOut();
   return (
     <AuthShell title="Panel de administración">
       <EmptyState

@@ -23,8 +23,26 @@ export async function signInWithGoogle(): Promise<{ ok: true } | { ok: false; er
   return exchangeFromUrl(result.url);
 }
 
+type ExchangeResult = { ok: true } | { ok: false; error?: string };
+
+// En Android el enlace de regreso llega dos veces (al botón y a la ruta
+// auth/callback). Un código PKCE solo se canjea una vez: ambos comparten el mismo canje.
+const exchanges = new Map<string, Promise<ExchangeResult>>();
+
 /** Canjea el código del enlace de regreso (también lo usa la ruta auth/callback). */
-export async function exchangeFromUrl(url: string): Promise<{ ok: true } | { ok: false; error?: string }> {
+export function exchangeFromUrl(url: string): Promise<ExchangeResult> {
+  const { queryParams } = Linking.parse(url);
+  const code = typeof queryParams?.code === 'string' ? queryParams.code : null;
+  if (!code) return exchange(url);
+  let pending = exchanges.get(code);
+  if (!pending) {
+    pending = exchange(url);
+    exchanges.set(code, pending);
+  }
+  return pending;
+}
+
+async function exchange(url: string): Promise<ExchangeResult> {
   const { queryParams } = Linking.parse(url);
   const code = typeof queryParams?.code === 'string' ? queryParams.code : null;
   if (!code) {

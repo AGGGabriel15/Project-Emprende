@@ -13,13 +13,13 @@ import { MenuItem } from '~/components/ui/menu';
 import { Screen } from '~/components/ui/screen';
 import { Text } from '~/components/ui/text';
 import { useNotifications } from '~/features/account/notifications';
-import { useSession } from '~/features/auth/session';
+import { useSignOut } from '~/features/auth/navigation';
 import { useBusinessHours, useMyBusiness } from '~/features/vendor/queries';
 import { colors } from '~/theme/tokens';
 
 export default function MyBusiness() {
   const router = useRouter();
-  const { signOut } = useSession();
+  const signOut = useSignOut();
   const business = useMyBusiness().data!;
   const hours = useBusinessHours(business.id);
   const notifications = useNotifications();
