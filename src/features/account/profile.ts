@@ -7,6 +7,12 @@ import { profileSchema } from "@/lib/validations/profile";
 export async function updateProfileWith(supabase: SupabaseClient, userId: string, input: unknown) {
   const parsed = profileSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.data.acceptTerms) {
+    const { data: current } = await supabase.from("profiles").select("accepted_terms_at").eq("id", userId).maybeSingle();
+    if (!current?.accepted_terms_at) {
+      return failure({ message: "Debes aceptar los términos y el aviso de privacidad (Ley 787)." });
+    }
+  }
   const { error } = await supabase
     .from("profiles")
     .update({
@@ -15,7 +21,8 @@ export async function updateProfileWith(supabase: SupabaseClient, userId: string
       cedula: parsed.data.cedula || null,
       department_id: parsed.data.departmentId,
       municipality_id: parsed.data.municipalityId,
-      accepted_terms_at: new Date().toISOString(),
+      // La fecha del consentimiento solo cambia cuando la persona lo da.
+      ...(parsed.data.acceptTerms ? { accepted_terms_at: new Date().toISOString() } : {}),
     })
     .eq("id", userId);
   if (error) return failure(error);

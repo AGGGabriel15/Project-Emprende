@@ -5,6 +5,7 @@ import { formatPhone } from '@/lib/phone';
 import { phoneSchema } from '@/lib/validations/common';
 import { profileSchema } from '@/lib/validations/profile';
 import { AuthShell } from '~/components/auth/auth-shell';
+import { TermsCheckbox } from '~/components/auth/form-extras';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { PhoneInput } from '~/components/ui/phone-input';
@@ -25,6 +26,9 @@ export default function CompleteProfileScreen() {
   const visitor = useVisitorLocation((s) => s.location);
   const setVisitor = useVisitorLocation((s) => s.setLocation);
   const courier = profile?.role === 'courier';
+  // Quien entró con Google aún no aceptó los términos: se piden aquí (Ley 787).
+  const needsConsent = !courier && !profile?.accepted_terms_at;
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [form, setForm] = useState({
     fullName: profile?.full_name ?? '',
     phone: formatPhone(profile?.phone),
@@ -46,13 +50,17 @@ export default function CompleteProfileScreen() {
       update = { phone: phone.data };
     } else {
       const parsed = profileSchema.safeParse({ ...form, departmentId: form.departmentId ?? 0, municipalityId: form.municipalityId ?? 0 });
-      if (!parsed.success) return setErrors(fieldErrors(parsed.error));
+      const consentError: Record<string, string> =
+        needsConsent && !acceptTerms ? { acceptTerms: 'Debes aceptar los términos y el aviso de privacidad.' } : {};
+      if (!parsed.success) return setErrors({ ...fieldErrors(parsed.error), ...consentError });
+      if (needsConsent && !acceptTerms) return setErrors(consentError);
       update = {
         full_name: parsed.data.fullName,
         phone: parsed.data.phone,
         department_id: parsed.data.departmentId,
         municipality_id: parsed.data.municipalityId,
-        accepted_terms_at: new Date().toISOString(),
+        // La fecha del consentimiento solo se registra cuando la persona lo da.
+        ...(needsConsent ? { accepted_terms_at: new Date().toISOString() } : {}),
       };
       setVisitor({ departmentId: parsed.data.departmentId, municipalityId: parsed.data.municipalityId });
     }
@@ -94,6 +102,7 @@ export default function CompleteProfileScreen() {
             />
           </>
         )}
+        {needsConsent && <TermsCheckbox checked={acceptTerms} onChange={setAcceptTerms} error={errors.acceptTerms} />}
         <Button onPress={submit} loading={pending} block size="lg">
           Guardar y continuar
         </Button>

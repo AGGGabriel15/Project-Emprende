@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bell, FileText, LogOut, MapPin, Shield, Store, UserRound } from 'lucide-react-native';
+import { Bell, FileText, LockKeyhole, LogOut, MapPin, ReceiptText, Shield, Store, UserRound } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 import { Logo } from '~/components/brand/logo';
 import { PatternBackground } from '~/components/brand/pattern';
@@ -65,7 +65,9 @@ export default function AccountScreen() {
       <Card padded={false}>
         <MenuItem icon={Store} label="Vender en Catarina Market" onPress={() => router.push('/vendedor/solicitud')} />
         <MenuItem icon={FileText} label="Términos y condiciones" onPress={() => WebBrowser.openBrowserAsync(`${WEB_URL}/terminos`)} />
-        <MenuItem icon={Shield} label="Aviso de privacidad" onPress={() => WebBrowser.openBrowserAsync(`${WEB_URL}/privacidad`)} last />
+        <MenuItem icon={ReceiptText} label="Entregas, reembolsos y garantías" onPress={() => WebBrowser.openBrowserAsync(`${WEB_URL}/politicas`)} />
+        <MenuItem icon={Shield} label="Aviso de privacidad" onPress={() => WebBrowser.openBrowserAsync(`${WEB_URL}/privacidad`)} />
+        <MenuItem icon={LockKeyhole} label="Seguridad de la plataforma" onPress={() => WebBrowser.openBrowserAsync(`${WEB_URL}/seguridad`)} last />
       </Card>
 
       {session && (

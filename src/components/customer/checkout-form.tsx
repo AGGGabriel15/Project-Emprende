@@ -316,6 +316,17 @@ export function CheckoutForm({
                 <Lock className="size-3.5" />
                 {paymentMode === "stripe" ? "Pago seguro con Stripe (modo de prueba)" : "Pago de demostración: no se cobra dinero real"}
               </p>
+              <p className="text-center text-xs text-muted-foreground">
+                Al pagar aceptas los{" "}
+                <Link href="/terminos" target="_blank" className="underline hover:text-primary">
+                  términos
+                </Link>{" "}
+                y la{" "}
+                <Link href="/politicas#reembolsos" target="_blank" className="underline hover:text-primary">
+                  política de reembolso
+                </Link>
+                .
+              </p>
             </CardBody>
           </Card>
         </aside>

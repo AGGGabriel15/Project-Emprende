@@ -23,8 +23,14 @@ export function useMarkNotificationsRead() {
   const { session } = useSession();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () =>
-      supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', session!.user.id).is('read_at', null),
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', session!.user.id)
+        .is('read_at', null);
+      if (error) throw error;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }

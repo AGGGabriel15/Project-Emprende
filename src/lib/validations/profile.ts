@@ -16,6 +16,8 @@ export const profileSchema = locationSchema.extend({
   fullName: z.string().trim().min(2, "Ingresa tu nombre.").max(100),
   phone: phoneSchema,
   cedula: z.union([cedulaSchema, z.literal("")]).optional(),
+  /** Consentimiento (Ley 787): obligatorio la primera vez, p. ej. al entrar con Google. */
+  acceptTerms: z.boolean().optional(),
 });
 
 export const addressSchema = locationSchema.extend({

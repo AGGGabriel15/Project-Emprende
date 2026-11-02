@@ -12,23 +12,22 @@ import { toast } from '~/components/ui/toast';
 import { signInWithPassword, WEB_URL } from '~/lib/api';
 import { supabase } from '~/lib/supabase';
 import { useGoToHomeWhenSignedIn } from '~/features/auth/navigation';
-import { fieldErrors } from '~/lib/forms';
+import { useLiveValidation } from '~/lib/forms';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { errors, touch, validate } = useLiveValidation(loginSchema, { email, password });
   const [pending, setPending] = useState(false);
 
   // Al entrar, va directo a la pantalla de su rol (ver useGoToHomeWhenSignedIn).
   useGoToHomeWhenSignedIn(next);
 
   async function submit() {
-    const parsed = loginSchema.safeParse({ email, password });
-    if (!parsed.success) return setErrors(fieldErrors(parsed.error));
-    setErrors({});
+    const parsed = validate();
+    if (!parsed.success) return;
     setPending(true);
     const result = await signInWithPassword(parsed.data);
     if (!result.ok) {
@@ -78,6 +77,7 @@ export default function LoginScreen() {
           keyboardType="email-address"
           textContentType="emailAddress"
           error={errors.email}
+          onBlur={touch('email')}
           returnKeyType="next"
         />
         <Input
@@ -88,6 +88,7 @@ export default function LoginScreen() {
           autoComplete="current-password"
           textContentType="password"
           error={errors.password}
+          onBlur={touch('password')}
           returnKeyType="go"
           onSubmitEditing={submit}
           right={

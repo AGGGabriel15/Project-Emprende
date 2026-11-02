@@ -34,6 +34,21 @@ export async function api<T>(path: string, body: Record<string, unknown> = {}): 
   }
 }
 
+/** Llama a un endpoint público de /api/mobile (sin sesión), p. ej. el estado de un correo. */
+export async function publicApi<T>(path: string, body: Record<string, unknown>): Promise<ActionResult<T>> {
+  try {
+    const response = await fetch(`${API_URL}/api/mobile/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const result = (await response.json().catch(() => null)) as ActionResult<T> | null;
+    return result ?? { ok: false, error: 'El servicio no respondió. Intenta de nuevo en unos minutos.' };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Revisa tu internet e intenta de nuevo.' };
+  }
+}
+
 /**
  * Inicio de sesión con contraseña a través del servidor, que limita los
  * intentos fallidos. Devuelve la sesión ya guardada en el cliente.

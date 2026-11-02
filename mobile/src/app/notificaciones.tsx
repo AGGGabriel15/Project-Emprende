@@ -1,6 +1,6 @@
 import { Stack, useRouter, type Href } from 'expo-router';
 import { Bell } from 'lucide-react-native';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { formatDate } from '@/lib/format';
@@ -19,12 +19,17 @@ export function openNotificationLink(router: ReturnType<typeof useRouter>, link:
 export default function NotificationsScreen() {
   const router = useRouter();
   const notifications = useNotifications();
-  const markRead = useMarkNotificationsRead();
+  const { mutate: markRead } = useMarkNotificationsRead();
   const unread = notifications.data?.some((n) => !n.read_at);
 
-  // Al abrir la pantalla quedan leídas (como la campana del web).
+  // Al abrir la pantalla quedan leídas (como la campana del web), una sola vez:
+  // antes el efecto dependía del objeto de useMutation, que cambia en cada render,
+  // y disparaba la actualización en bucle hasta colgar la app.
+  const marked = useRef(false);
   useEffect(() => {
-    if (unread) markRead.mutate();
+    if (!unread || marked.current) return;
+    marked.current = true;
+    markRead();
   }, [unread, markRead]);
 
   return (

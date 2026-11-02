@@ -6,11 +6,13 @@ import { appUrl, failure, invalid, success } from "@/lib/actions";
 import { destinationFor, needsProfileCompletion } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import {
+  emailSchema,
   loginSchema,
   newPasswordSchema,
   registerSchema,
   resetSchema,
 } from "@/lib/validations/auth";
+import { emailStatus, emailTakenMessage } from "./email-status";
 import { clientIp, signInWithGuard } from "./login-guard";
 
 function safeNext(next: unknown) {
@@ -22,6 +24,13 @@ function safeNext(next: unknown) {
 async function origin() {
   const h = await headers();
   return h.get("origin") ?? appUrl();
+}
+
+/** A dónde lleva el enlace del correo de confirmación. */
+async function confirmRedirect(next?: string) {
+  return `${await origin()}/auth/callback?next=${encodeURIComponent(
+    `/completar-perfil?next=${encodeURIComponent(safeNext(next))}`,
+  )}`;
 }
 
 export async function signIn(input: unknown, next?: string) {
@@ -60,23 +69,34 @@ export async function signIn(input: unknown, next?: string) {
 export async function signUp(input: unknown, next?: string) {
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
+  const email = parsed.data.email.trim().toLowerCase();
   const supabase = await createClient();
+  const emailRedirectTo = await confirmRedirect(next);
+
+  const existing = await emailStatus(email);
+  const taken = emailTakenMessage(existing);
+  if (taken) return failure({ message: taken });
+  if (existing.status === "unconfirmed") {
+    // Ya se registró pero no confirmó: se le reenvía el enlace.
+    await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo } });
+    return success({ redirectTo: null, needsConfirmation: true });
+  }
+
   const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
+    email,
     password: parsed.data.password,
-    options: {
-      data: { full_name: parsed.data.fullName, accepted_terms: true },
-      emailRedirectTo: `${await origin()}/auth/callback?next=${encodeURIComponent(
-        `/completar-perfil?next=${encodeURIComponent(safeNext(next))}`,
-      )}`,
-    },
+    options: { data: { full_name: parsed.data.fullName, accepted_terms: true }, emailRedirectTo },
   });
   if (error) {
     return failure(
       error.code === "user_already_exists"
-        ? { message: "Ya existe una cuenta con ese correo." }
+        ? { message: "Este correo ya tiene una cuenta. Entra o recupera tu contraseña." }
         : error,
     );
+  }
+  // Supabase disimula el registro repetido devolviendo un usuario sin identidades.
+  if (data.user && data.user.identities?.length === 0) {
+    return failure({ message: "Este correo ya tiene una cuenta. Entra o recupera tu contraseña." });
   }
   // Si el proyecto no exige confirmar el correo, la sesión ya está activa.
   if (data.session) {
@@ -86,6 +106,32 @@ export async function signUp(input: unknown, next?: string) {
     });
   }
   return success({ redirectTo: null, needsConfirmation: true });
+}
+
+/** Estado del correo mientras se escribe en el registro (disponible, registrado o sin confirmar). */
+export async function checkEmail(email: unknown) {
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) return success({ status: "invalid" as const, message: null });
+  const status = await emailStatus(parsed.data);
+  return success({ status: status.status, message: emailTakenMessage(status) });
+}
+
+/** Vuelve a enviar el correo de confirmación. Supabase permite uno por minuto. */
+export async function resendConfirmation(email: unknown, next?: string) {
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) return invalid(parsed.error);
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: parsed.data,
+    options: { emailRedirectTo: await confirmRedirect(next) },
+  });
+  if (error) {
+    return failure({
+      message: error.status === 429 ? "Espera un minuto antes de pedir otro correo." : "No pudimos reenviar el correo. Intenta de nuevo.",
+    });
+  }
+  return success();
 }
 
 export async function signInWithGoogle(next?: string) {

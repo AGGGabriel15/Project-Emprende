@@ -4,7 +4,7 @@ import { Logo } from "./logo";
 export function Footer() {
   return (
     <footer className="mt-16 border-t bg-card">
-      <div className="container-page grid gap-8 py-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="container-page grid gap-8 py-10 sm:grid-cols-2 lg:grid-cols-5">
         <div className="space-y-3">
           <Logo />
           <p className="max-w-xs text-sm text-muted-foreground">
@@ -30,10 +30,21 @@ export function Footer() {
           ]}
         />
         <FooterColumn
+          title="Ayuda"
+          links={[
+            ["/politicas#entregas", "Tiempos de entrega"],
+            ["/politicas#reembolsos", "Política de reembolso"],
+            ["/politicas#devoluciones", "Devoluciones y garantías"],
+            ["/politicas#reclamos", "Cómo hacer un reclamo"],
+          ]}
+        />
+        <FooterColumn
           title="Legal"
           links={[
             ["/terminos", "Términos y condiciones"],
             ["/privacidad", "Aviso de privacidad (Ley 787)"],
+            ["/seguridad", "Seguridad del sitio (Ley 1042)"],
+            ["/politicas", "Derechos del consumidor (Ley 842)"],
           ]}
         />
       </div>

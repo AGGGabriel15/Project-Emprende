@@ -4,6 +4,21 @@ import './crypto-polyfill';
 import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Ninguna petición puede quedar colgada: si la red del celular se queda a medias
+ * (p. ej. al volver de segundo plano), supabase-js esperaba para siempre y con él
+ * todas las consultas que piden la sesión. Las subidas de fotos no tienen límite.
+ */
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (init.signal || url.includes('/storage/v1/object')) return fetch(input, init);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 /**
  * Mismo proyecto de Supabase que el web, con la clave pública: RLS y las
  * funciones de la base protegen los datos. La sesión vive en el almacenamiento
@@ -17,6 +32,7 @@ export const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL!, proc
     detectSessionInUrl: false,
     flowType: 'pkce',
   },
+  global: { fetch: fetchWithTimeout },
 });
 
 if (Platform.OS !== 'web') {

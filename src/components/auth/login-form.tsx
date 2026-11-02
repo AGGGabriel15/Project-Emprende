@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form-controls";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signIn } from "@/features/auth/actions";
 import { loginSchema } from "@/lib/validations/auth";
 import { forgetBrowserSession } from "@/lib/supabase/client";
@@ -16,6 +17,8 @@ export function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
+    // Valida al salir de cada campo y, desde ahí, mientras se escribe.
+    mode: "onTouched",
     defaultValues: { email: "", password: "" },
   });
   const { errors, isSubmitting } = form.formState;
@@ -48,7 +51,7 @@ export function LoginForm({ next }: { next?: string }) {
         htmlFor="password"
         error={errors.password?.message}
       >
-        <Input id="password" type="password" autoComplete="current-password" aria-invalid={Boolean(errors.password) || undefined} {...form.register("password")} />
+        <PasswordInput id="password" autoComplete="current-password" aria-invalid={Boolean(errors.password) || undefined} {...form.register("password")} />
       </Field>
       <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
         Entrar
