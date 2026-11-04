@@ -14,7 +14,8 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' blob: data: ${supabaseOrigin}`,
+  // googleusercontent: foto de perfil de las cuentas que entran con Google.
+  `img-src 'self' blob: data: ${supabaseOrigin} https://*.googleusercontent.com`,
   "font-src 'self'",
   `connect-src 'self' ${supabaseOrigin} wss://${supabaseHost}`,
   "frame-src 'none'",

@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,9 +28,17 @@ import { cn, initials } from "@/lib/utils";
 import type { ShellUser } from "./site-shell";
 
 export function Avatar({ name, url, className = "size-9" }: { name: string; url?: string | null; className?: string }) {
-  return url ? (
+  // Si la foto no carga (enlace vencido o bloqueado), se muestran las iniciales.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  return url && url !== failedUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="" className={cn("shrink-0 rounded-full object-cover", className)} referrerPolicy="no-referrer" />
+    <img
+      src={url}
+      alt=""
+      className={cn("shrink-0 rounded-full object-cover", className)}
+      referrerPolicy="no-referrer"
+      onError={() => setFailedUrl(url)}
+    />
   ) : (
     <span className={cn("grid shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary", className)}>
       {initials(name) || "?"}
